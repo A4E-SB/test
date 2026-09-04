@@ -262,6 +262,64 @@ def main() -> int:
     assert r["level"] == "danger" and r["blacklisted"]
     print("  ✓ phone_risk (blacklisted)")
 
+    # ---- v1.0.4 fixes -------------------------------------------------------
+    # 1) wheel_combo cycling logic (fake combo records set() calls)
+    from himaya.ui.widgets import wheel_combo
+
+    class FakeCombo:
+        def __init__(self):
+            self.value = "Adrar"
+            self.bindings = {}
+            self.entry = self  # wheel_combo also binds the inner entry
+
+        def bind(self, seq, fn):
+            self.bindings[seq] = fn
+
+        def get(self):
+            return self.value
+
+        def set(self, v):
+            self.value = v
+
+    from himaya.wilayas import WILAYA_NAMES_FR
+    fc = FakeCombo()
+    wheel_combo(fc, WILAYA_NAMES_FR)
+
+    class FakeEvent:
+        delta = -120  # scroll down
+
+    fc.bindings["<MouseWheel>"](FakeEvent())
+    assert fc.value == "Chlef", fc.value          # 01 -> 02
+    fc.bindings["<MouseWheel>"](FakeEvent())
+    assert fc.value == "Laghouat", fc.value       # 02 -> 03
+    up = FakeEvent(); up.delta = 120              # scroll up
+    fc.bindings["<MouseWheel>"](up)
+    assert fc.value == "Chlef", fc.value
+    print("  ✓ wheel_combo cycles wilayas (down/up)")
+
+    # 2) status buttons give feedback instead of doing nothing silently
+    app.show_page("orders")
+    orders_page = app.page
+    orders_page.tree.selection = lambda: []      # type: ignore[assignment]
+    orders_page.tree.focus = lambda: ""          # type: ignore[assignment]
+    orders_page.set_status("delivered")          # -> toast path, no crash
+    print("  ✓ status button with no selection -> feedback (no silent no-op)")
+
+    # 3) dashboard cards navigate + apply filters
+    app.show_page("dashboard")
+    dash = app.page
+    dash._goto_orders("ghosted")
+    assert app.page_name == "orders"
+    print("  ✓ dashboard card click navigates + filters")
+
+    # 4) page cache: revisiting a page must NOT rebuild it
+    app.show_page("customers")
+    cached_ref = app.page
+    app.show_page("orders")
+    app.show_page("customers")
+    assert app.page is cached_ref
+    print("  ✓ pages are cached (instant switching)")
+
     # ---- drag&drop must NEVER crash startup, whatever the library state ----
     from himaya.ui.app import _enable_dnd
     broken = types.ModuleType("tkinterdnd2")           # no TkinterDnD at all

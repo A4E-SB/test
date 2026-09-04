@@ -59,6 +59,7 @@ class HimayaApp(ctk.CTk):
         self.page_name: str | None = None
         self.page = None
         self._nav_buttons: dict[str, ctk.CTkButton] = {}
+        self._pages: dict[str, object] = {}   # cache -> instant page switching
 
         self.title(t("app_title", self.lang))
         self.geometry("1280x760")
@@ -153,16 +154,21 @@ class HimayaApp(ctk.CTk):
             "transfer": TransferPage, "labels": LabelsPage,
             "settings": SettingsPage,
         }
+        # hide current page, then show the target one — pages are CACHED so
+        # switching is instant after the first visit (no rebuild lag)
         if self.page is not None:
-            self.page.destroy()
+            self.page.grid_remove()
         for k, btn in self._nav_buttons.items():
             active = k == name
             btn.configure(fg_color=config.COLOR_ACCENT if active else "transparent",
                           text_color="#ffffff" if active else config.COLOR_FG)
-        cls = classes[name]
         self.page_name = name
-        self.page = cls(self.main, self)
+        if name not in self._pages:
+            self._pages[name] = classes[name](self.main, self)
+        self.page = self._pages[name]
         self.page.grid(row=0, column=0, sticky="nsew")
+        if hasattr(self.page, "refresh"):
+            self.page.refresh()
 
     def refresh_page(self) -> None:
         if self.page is not None and hasattr(self.page, "refresh"):
@@ -173,6 +179,13 @@ class HimayaApp(ctk.CTk):
     def set_language(self, lang: str) -> None:
         settings_store.set_setting(self.db, "language", lang)
         self.lang = lang
+        # cached pages hold translated strings -> rebuild them lazily
+        for page in self._pages.values():
+            try:
+                page.destroy()
+            except Exception:
+                pass
+        self._pages.clear()
         self.title(t("app_title", lang))
         for w in self.sidebar.winfo_children():
             w.destroy()

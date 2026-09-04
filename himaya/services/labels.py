@@ -63,16 +63,42 @@ def _ar(text: str) -> str:
         return text
 
 
-def _risk_style(tags: str, status: str) -> tuple[str, colors.Color, str]:
-    """(risk_key, color, note) for an order."""
+# Risk line + warning note per level, FR and AR (AR is shaped at draw time)
+_RISK_TEXT = {
+    "high":   {"fr": "RISQUE ÉLEVÉ",   "ar": "خطر عالٍ"},
+    "medium": {"fr": "PRUDENCE",       "ar": "حذر"},
+    "low":    {"fr": "FIABLE",         "ar": "موثوق"},
+    "normal": {"fr": "",               "ar": ""},
+}
+_RISK_NOTES = {
+    "high":   {"fr": "ATTENTION : client à risque — ne pas expédier sans acompte / appel avant livraison",
+               "ar": "تنبيه: زبون خطير — لا ترسل بدون تسبيق أو اتصال قبل التوصيل"},
+    "medium": {"fr": "Appeler avant la livraison (client fantôme / perditeur de temps)",
+               "ar": "اتصل قبل التوصيل (زبون شبح / مضيع وقت)"},
+    "low":    {"fr": "Client de confiance",
+               "ar": "زبون موثوق"},
+    "normal": {"fr": "", "ar": ""},
+}
+
+
+def _risk_style(tags: str, status: str, lang: str = "fr"
+                ) -> tuple[str, colors.Color, str]:
+    """(risk_key, color, localized+shaped note) for an order."""
     tags = set((tags or "").split(",")) - {""}
     if "scammer" in tags or status == "fake_payment":
-        return "high", colors.HexColor(config.COLOR_RED), "ATTENTION : client à risque — ne pas expédier sans acompte / appel avant livraison"
-    if "ghost" in tags or "time_waster" in tags:
-        return "medium", colors.HexColor(config.COLOR_ORANGE), "Appeler avant la livraison (client fantôme / perditeur de temps)"
-    if "trusted" in tags:
-        return "low", colors.HexColor(config.COLOR_GREEN), "Client de confiance"
-    return "normal", colors.HexColor(config.COLOR_ACCENT), ""
+        key = "high"
+    elif "ghost" in tags or "time_waster" in tags:
+        key = "medium"
+    elif "trusted" in tags:
+        key = "low"
+    else:
+        key = "normal"
+    color = {"high": config.COLOR_RED, "medium": config.COLOR_ORANGE,
+             "low": config.COLOR_GREEN, "normal": config.COLOR_ACCENT}[key]
+    note = _RISK_NOTES[key][lang if lang in ("fr", "ar") else "fr"]
+    if lang == "ar":
+        note = _ar(note)
+    return key, colors.HexColor(color), note
 
 
 def generate_labels(db: Database, order_ids: list[int], out_path: str | Path,
@@ -91,22 +117,24 @@ def generate_labels(db: Database, order_ids: list[int], out_path: str | Path,
         cust = db.query_one("SELECT * FROM customers WHERE id = ?", (order["customer_id"],))
         if not cust:
             continue
-        risk_key, risk_color, note = _risk_style(cust["tags"] or "", order["status"])
-        name = cust["name"]
+        risk_key, risk_color, note = _risk_style(cust["tags"] or "", order["status"], lang)
+        ar = (lang == "ar")   # Arabic mode: shape every Arabic string
+        name = _ar(cust["name"]) if ar else cust["name"]
         wil = order["wilaya"] or cust["wilaya"] or ""
-        wil_display = wilaya_ar(wil) if lang == "ar" and wil else wil
+        wil_display = _ar(wilaya_ar(wil)) if ar and wil else wil
 
         # Header band (risk colored)
         c.setFillColor(risk_color)
         c.rect(0, h - 14 * mm, w, 14 * mm, stroke=0, fill=1)
         c.setFillColor(colors.white)
         c.setFont(latin, 12)
-        title = "حماية HIMAYA" if lang == "ar" else "HIMAYA"
+        title = _ar("حماية") + "  HIMAYA" if ar else "HIMAYA"
         c.drawCentredString(w / 2, h - 9 * mm, title)
         c.setFont(latin, 9)
-        risk_txt = {"high": "RISQUE ÉLEVÉ / خطر عالٍ", "medium": "PRUDENCE / حذر",
-                    "low": "FIABLE / موثوق", "normal": ""}[risk_key]
-        c.drawCentredString(w / 2, h - 12.2 * mm, risk_txt)
+        rt = _RISK_TEXT[risk_key][lang if lang in ("fr", "ar") else "fr"]
+        if ar:
+            rt = _ar(rt) + ("  •  " + _RISK_TEXT[risk_key]["fr"] if rt else "")
+        c.drawCentredString(w / 2, h - 12.2 * mm, rt)
 
         # Order number big
         c.setFillColor(colors.HexColor(config.COLOR_FG if size_name == "square" else "#000000"))
@@ -136,10 +164,13 @@ def generate_labels(db: Database, order_ids: list[int], out_path: str | Path,
         c.drawString(6 * mm, y, wil_display)
         y -= 7 * mm
         c.setFont(latin, 9)
-        c.drawString(6 * mm, y, (order["delivery_method"] or "")[:30])
+        delivery = order["delivery_method"] or ""
+        c.drawString(6 * mm, y, (_ar(delivery) if ar else delivery)[:30])
 
         # Address (wrapped, max 2 lines)
         addr = (cust["address"] or "")[:70]
+        if ar:
+            addr = _ar(addr)
         if addr:
             y -= 5.5 * mm
             c.setFont(latin, 9)
@@ -152,15 +183,19 @@ def generate_labels(db: Database, order_ids: list[int], out_path: str | Path,
         y -= 11 * mm
         c.setFont(latin, 10)
         prod = order["product"][:34]
-        c.drawString(6 * mm, y, prod)
+        c.drawString(6 * mm, y, _ar(prod) if ar else prod)
         y -= 9 * mm
         c.setFont(latin, 17)
-        price_txt = f"{order['price']:,.0f} DA".replace(",", " ")
-        if lang == "ar":
-            price_txt = f"{order['price']:,.0f} دج".replace(",", " ")
+        if ar:
+            price_txt = f"{order['price']:,.0f} ".replace(",", " ") + _ar("دج")
+        else:
+            price_txt = f"{order['price']:,.0f} DA".replace(",", " ")
         c.drawString(6 * mm, y, price_txt)
         c.setFont(latin, 9)
-        c.drawRightString(w - 6 * mm, y, "À PAYER À LA LIVRAISON / الدفع عند الاستلام")
+        cod = "À PAYER À LA LIVRAISON"
+        cod_ar = "الدفع عند الاستلام"
+        c.drawRightString(w - 6 * mm, y,
+                          (_ar(cod_ar) + "  •  " if ar else "") + cod)
 
         # Warning note
         if note:

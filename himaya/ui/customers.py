@@ -266,6 +266,8 @@ class CustomerDialog(ctk.CTkToplevel):
             fill="x", padx=24, pady=(8, 0))
         self.wilaya = ctk.CTkComboBox(self, values=WILAYA_NAMES_FR, width=390)
         self.wilaya.pack(padx=24)
+        from .widgets import wheel_combo
+        wheel_combo(self.wilaya, WILAYA_NAMES_FR)
 
         if editing:
             c = customers_model.get(app.db, customer_id)

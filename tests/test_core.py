@@ -251,6 +251,24 @@ def test_orders_csv_roundtrip(tmp: Path) -> None:
           and imported[0]["status"] == "paid")
 
 
+def test_arabic_shaping() -> None:
+    print("[labels] Arabic shaping (PDF was backwards in v1.0.3)")
+    from himaya.services.labels import _ar, _RISK_NOTES, _RISK_TEXT
+    raw = "حماية"
+    shaped = _ar(raw)
+    check("shaper installed & changes text", shaped != raw or len(raw) == 0,
+          "arabic-reshaper/python-bidi missing?")
+    # presentation forms (U+FB50–U+FEFF) prove visual shaping happened
+    check("shaped text uses presentation forms",
+          any(0xFB50 <= ord(ch) <= 0xFEFF for ch in shaped))
+    check("Latin text untouched by shaper", _ar("HIMAYA 123") == "HIMAYA 123")
+    check("risk notes exist in fr+ar",
+          all(set(v) >= {"fr", "ar"} and (v["fr"] and v["ar"] or k == "normal")
+              for k, v in _RISK_NOTES.items()))
+    check("risk text exists in fr+ar",
+          all(set(v) >= {"fr", "ar"} for v in _RISK_TEXT.values()))
+
+
 def test_labels(tmp: Path) -> None:
     print("[PDF labels]")
     db = make_db(tmp)
@@ -464,6 +482,7 @@ def main() -> int:
     test_inquiries(tmp)
     test_blacklist_and_hma(tmp)
     test_orders_csv_roundtrip(tmp)
+    test_arabic_shaping()
     test_labels(tmp)
     test_backup(tmp)
     test_detector_hashing_and_parsing(tmp)

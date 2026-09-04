@@ -66,10 +66,51 @@ def make_tree(master, columns: list[tuple[str, str, int]], rid: bool = False,
 # Stat card (dashboard)
 # ---------------------------------------------------------------------------
 
+def wheel_combo(combo, values: list[str], wrap: bool = True) -> None:
+    """
+    Mouse-wheel cycling for CTkComboBox (e.g. the 58 wilayas).
+
+    The native dropdown menu doesn't scroll with the wheel on Windows, so the
+    widget itself cycles through its values instead: scroll up = previous,
+    scroll down = next.
+    """
+    vals = list(values) or ["—"]
+
+    def step(delta: int, _event=None) -> str:
+        try:
+            cur = combo.get()
+            idx = vals.index(cur) if cur in vals else -1
+        except Exception:
+            idx = -1
+        idx += delta
+        if wrap:
+            idx %= len(vals)
+        else:
+            idx = max(0, min(len(vals) - 1, idx))
+        combo.set(vals[idx])
+        return "break"
+
+    def bind_all(widget) -> None:
+        widget.bind("<MouseWheel>", lambda e: step(1 if (e.delta or 0) < 0 else -1))
+        widget.bind("<Button-4>", lambda e: step(-1))   # Linux scroll up
+        widget.bind("<Button-5>", lambda e: step(1))    # Linux scroll down
+
+    bind_all(combo)
+    # the combobox is a frame around an entry/button: wheel events over the
+    # text field only fire on the entry, so bind it too (if present)
+    entry = getattr(combo, "entry", None)
+    if entry is not None:
+        try:
+            bind_all(entry)
+        except Exception:
+            pass
+
+
 class StatCard(ctk.CTkFrame):
     def __init__(self, master, title: str, value: str = "—",
-                 color: str = config.COLOR_ACCENT, sub: str = ""):
+                 color: str = config.COLOR_ACCENT, sub: str = "", on_click=None):
         super().__init__(master, fg_color=config.COLOR_BG_2, corner_radius=12)
+        self._on_click = on_click
         self.grid_columnconfigure(0, weight=1)
         bar = ctk.CTkFrame(self, fg_color=color, width=4, corner_radius=2)
         bar.grid(row=0, column=0, rowspan=3, sticky="ns", padx=(8, 0), pady=10)
@@ -84,6 +125,8 @@ class StatCard(ctk.CTkFrame):
         self.sub_lbl.grid(row=2, column=1, sticky="ew", padx=(10, 12), pady=(0, 10))
         if not sub:
             self.sub_lbl.grid_remove()
+        if on_click:                    # labels exist now -> safe to bind
+            self._make_clickable()
 
     def set(self, value: str, sub: str = "") -> None:
         self.value_lbl.configure(text=value)
@@ -92,6 +135,16 @@ class StatCard(ctk.CTkFrame):
             self.sub_lbl.grid()
         else:
             self.sub_lbl.grid_remove()
+
+    def _make_clickable(self) -> None:
+        """Whole card reacts to the cursor + click (cards navigate the app)."""
+        try:
+            self.configure(cursor="hand2")
+        except Exception:
+            pass
+        widgets = [self, self.title_lbl, self.value_lbl, self.sub_lbl]
+        for w in widgets:
+            w.bind("<Button-1>", lambda _e: (self._on_click or (lambda: None))())
 
 
 # ---------------------------------------------------------------------------

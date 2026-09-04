@@ -24,22 +24,31 @@ class DashboardPage(ctk.CTkScrollableFrame):
                              anchor="e" if rtl else "w", justify="right" if rtl else "left")
         title.grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=(4, 10))
 
-        # ---- stat cards -------------------------------------------------------
-        self.card_orders = StatCard(self, app.t("dash_today_new"), color=config.COLOR_ACCENT)
-        self.card_shipped = StatCard(self, app.t("dash_today_shipped"), color="#8e7cc3")
-        self.card_ghosts = StatCard(self, app.t("dash_today_ghosts"), color=config.COLOR_RED)
-        self.card_saved = StatCard(self, app.t("dash_money_saved"), color=config.COLOR_GREEN)
+        # ---- stat cards (all clickable -> jump to the relevant page) ---------
+        go = self.app.show_page
+        self.card_orders = StatCard(self, app.t("dash_today_new"),
+                                    color=config.COLOR_ACCENT,
+                                    on_click=lambda: self._goto_orders(""))
+        self.card_shipped = StatCard(self, app.t("dash_today_shipped"), color="#8e7cc3",
+                                     on_click=lambda: self._goto_orders("shipped"))
+        self.card_ghosts = StatCard(self, app.t("dash_today_ghosts"),
+                                    color=config.COLOR_RED,
+                                    on_click=lambda: self._goto_orders("ghosted"))
+        self.card_saved = StatCard(self, app.t("dash_money_saved"),
+                                   color=config.COLOR_GREEN,
+                                   on_click=lambda: self._goto_orders("blocked"))
         for i, card in enumerate([self.card_orders, self.card_shipped,
                                   self.card_ghosts, self.card_saved]):
             card.grid(row=1, column=i, sticky="nsew", padx=6, pady=4)
 
         self.card_completion = StatCard(self, app.t("dash_completion"),
-                                        color=config.COLOR_GREEN)
-        self.card_lost = StatCard(self, app.t("dash_total_lost"), color=config.COLOR_RED)
+                                        color=config.COLOR_GREEN, on_click=lambda: go("reports"))
+        self.card_lost = StatCard(self, app.t("dash_total_lost"), color=config.COLOR_RED,
+                                  on_click=lambda: go("reports"))
         self.card_customers = StatCard(self, app.t("dash_customers"),
-                                       color=config.COLOR_ACCENT)
+                                       color=config.COLOR_ACCENT, on_click=lambda: go("customers"))
         self.card_blacklist = StatCard(self, app.t("dash_blacklist_size"),
-                                       color=config.COLOR_ORANGE)
+                                       color=config.COLOR_ORANGE, on_click=lambda: go("transfer"))
         for i, card in enumerate([self.card_completion, self.card_lost,
                                   self.card_customers, self.card_blacklist]):
             card.grid(row=2, column=i, sticky="nsew", padx=6, pady=4)
@@ -80,6 +89,13 @@ class DashboardPage(ctk.CTkScrollableFrame):
         self.refresh()
 
     # ------------------------------------------------------------------
+
+    def _goto_orders(self, status: str) -> None:
+        """Jump to the Orders page and apply a status filter ("" = all)."""
+        self.app.show_page("orders")
+        page = self.app.page
+        if hasattr(page, "filter_status"):
+            page.filter_status(status)
 
     def refresh(self) -> None:
         db, lang = self.app.db, self.app.lang

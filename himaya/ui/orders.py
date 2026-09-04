@@ -17,6 +17,7 @@ from ..models import orders as orders_model
 from ..models import settings_store
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
+from . import widgets as W
 from .widgets import F, make_tree, row_tag
 
 
@@ -48,6 +49,7 @@ class OrdersPage(ctk.CTkFrame):
                                           values=[app.t("all")] + WILAYA_NAMES_FR,
                                           command=lambda _v: self.refresh())
         self.f_wilaya.pack(side="left", padx=4, pady=8)
+        W.wheel_combo(self.f_wilaya, [app.t("all")] + WILAYA_NAMES_FR)
         self.f_query = tk.StringVar()
         ctk.CTkEntry(filters, textvariable=self.f_query, width=200,
                      placeholder_text=app.t("search"),
@@ -135,6 +137,8 @@ class OrdersPage(ctk.CTkFrame):
     def set_status(self, status: str) -> None:
         ids = self.selected_ids()
         if not ids:
+            # buttons LOOKED dead without a selection -> always give feedback
+            self.app.toast(self.app.t("ord_select_first"), "warn")
             return
         for oid in ids:
             orders_model.set_status(self.app.db, oid, status)
@@ -142,6 +146,12 @@ class OrdersPage(ctk.CTkFrame):
             if o:
                 trust.refresh(self.app.db, o["customer_id"])
         self.app.toast(self.app.t("ord_status_changed"), "ok")
+        self.refresh()
+
+    def filter_status(self, status: str) -> None:
+        """Select a status in the filter bar (used by dashboard cards)."""
+        label = self.app.t("all") if not status else t(f"st_{status}", self.app.lang)
+        self.f_status.set(label)
         self.refresh()
 
     def new_order(self) -> None:
@@ -242,6 +252,7 @@ class OrderDialog(ctk.CTkToplevel):
         ctk.CTkLabel(srow, text=app.t("wilaya"), font=F(12)).pack(side="left", padx=(0, 6))
         self.wilaya = ctk.CTkComboBox(srow, values=WILAYA_NAMES_FR, width=170)
         self.wilaya.pack(side="left")
+        W.wheel_combo(self.wilaya, WILAYA_NAMES_FR)
 
         ctk.CTkLabel(self, text=app.t("status"), font=F(12), anchor="w").pack(fill="x", padx=24, pady=(8, 0))
         self.status = ctk.CTkOptionMenu(

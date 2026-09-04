@@ -242,6 +242,9 @@ _TR = {
     "set_a6": {"fr": "A6 (105×148 mm)", "en": "A6 (105×148 mm)", "ar": "A6 (105×148 مم)"},
     "set_square": {"fr": "Carré (100×100 mm)", "en": "Square (100×100 mm)", "ar": "مربع (100×100 مم)"},
     "offline_badge": {"fr": "100% hors ligne", "en": "100% offline", "ar": "بدون إنترنت"},
+    "ord_select_first": {"fr": "Sélectionnez d'abord une commande (clic sur une ligne)",
+                         "en": "Select an order first (click a row)",
+                         "ar": "حدد طلبية أولاً (انقر على سطر في الجدول)"},
 }
 
 _MONTHS = {
