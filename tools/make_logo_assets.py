@@ -132,74 +132,72 @@ def build_icon(size: int = 1024) -> Image.Image:
     return out
 
 
-def clean_logo() -> None:
+
+
+def banner() -> None:
     """
-    Strip the light canvas around the dark tile in assets/logo.png (master).
+    Master logo + README banner, drawn 100% programmatically in the same
+    identity as the app icon (dark gradient tile + emerald shield + check).
 
-    Only background pixels CONNECTED to the canvas border are removed, so the
-    white HIMAYA wordmark inside the tile is untouched. Edges are feathered
-    and every transparent pixel gets dark RGB underneath (anti-fringe — the
-    logo showed white edges on GitHub's white pages in v1.0.5).
+    History: the original AI-generated logo had soft glows and extra artwork
+    reaching its edges, so no background-removal/corner-fill ever came out
+    artifact-free. Drawing the banner instead gives a full-bleed square with
+    no corners, no transparency and no edges — it renders identically on any
+    background. Writes assets/logo.png + assets/himaya-banner.png.
     """
-    from PIL import ImageFilter
+    S = 2048
+    img = Image.new("RGB", (S, S))
+    d = ImageDraw.Draw(img)
+    for y in range(S):
+        t = y / (S - 1)
+        c = tuple(int(TILE_TOP[i] + (TILE_BOTTOM[i] - TILE_TOP[i]) * t) for i in range(3))
+        d.line([(0, y), (S, y)], fill=c)
 
-    img = Image.open(ASSETS / "logo.png").convert("RGB")
-    a = np.array(img).astype(int)
-    lum = (a[..., 0] * 299 + a[..., 1] * 587 + a[..., 2] * 114) // 1000
-    light = lum > 140
+    pts = _shield_points(S / 2, 830, S * 0.60, S * 0.64)
+    grad = Image.new("RGB", (S, S))
+    gd = ImageDraw.Draw(grad)
+    top_y, bot_y = min(p[1] for p in pts), max(p[1] for p in pts)
+    for y in range(int(top_y), int(bot_y) + 1):
+        t = (y - top_y) / max(1, bot_y - top_y)
+        c = tuple(int(SHIELD_LIGHT[i] + (SHIELD_DARK[i] - SHIELD_LIGHT[i]) * t) for i in range(3))
+        gd.line([(0, y), (S, y)], fill=c)
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).polygon(pts, fill=255)
+    img.paste(grad, (0, 0), mask)
+    d = ImageDraw.Draw(img)
+    d.polygon(_shield_points(S / 2, 830, S * 0.525, S * 0.565),
+              outline=(24, 148, 84), width=24)
+    lw = 110
+    a, b, c = (S * 0.345, 850), (S * 0.455, 965), (S * 0.665, 715)
+    d.line([a, b], fill=CHECK, width=lw)
+    d.line([b, c], fill=CHECK, width=lw)
+    for pt in (a, b, c):
+        r = lw / 2
+        d.ellipse([pt[0] - r, pt[1] - r, pt[0] + r, pt[1] + r], fill=CHECK)
 
-    conn = np.zeros_like(light)
-    conn[0, :] = light[0, :]
-    conn[-1, :] = light[-1, :]
-    conn[:, 0] |= light[:, 0]
-    conn[:, -1] |= light[:, -1]
-    for _ in range(2000):
-        grown = conn.copy()
-        grown[1:, :] |= conn[:-1, :]
-        grown[:-1, :] |= conn[1:, :]
-        grown[:, 1:] |= conn[:, :-1]
-        grown[:, :-1] |= conn[:, 1:]
-        grown &= light
-        if (grown == conn).all():
-            break
-        conn = grown
+    try:
+        f_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 300)
+        f_ar = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 170)
+    except OSError:
+        f_big = f_ar = ImageFont.load_default()
+    text, spacing = "HIMAYA", 46
+    widths = [d.textlength(ch, font=f_big) for ch in text]
+    x = (S - (sum(widths) + spacing * (len(text) - 1))) / 2
+    for ch, w in zip(text, widths):
+        d.text((x, 1430), ch, font=f_big, fill=(240, 242, 246))
+        x += w + spacing
+    try:
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+        ar = get_display(arabic_reshaper.reshape("\u062d\u0645\u0627\u064a\u0629"))
+        d.text(((S - d.textlength(ar, font=f_ar)) / 2, 1810), ar,
+               font=f_ar, fill=(52, 224, 133))
+    except Exception:
+        pass
 
-    alpha = np.where(conn, 0, 255).astype(np.uint8)
-    alpha = np.array(Image.fromarray(alpha, "L").filter(ImageFilter.GaussianBlur(1.2)))
-    alpha = np.where(conn & (alpha < 200), 0, alpha)
-
-    rgb = a.copy()
-    trans = alpha < 220
-    for c, v in enumerate((18, 20, 26)):
-        rgb[..., c] = np.where(trans, v, rgb[..., c])
-    Image.fromarray(np.dstack([rgb, alpha]).astype(np.uint8), "RGBA").save(
-        ASSETS / "logo.png")
-    print(f"logo.png cleaned: {int(conn.sum())} background pixels -> transparent")
-
-
-def square_banner() -> None:
-    """
-    Final logo state: ONE seamless full-bleed square tile.
-
-    The rounded-corner cutouts are blended into the tile's own vertical
-    gradient (centre column = pure gradient for every row), so the image has
-    no corners, no transparency, no edges — it renders identically on light
-    pages, dark pages and file previews. Also writes assets/banner.png
-    (fresh filename used by the READMEs — GitHub's image CDN caches URLs).
-    """
-    img = Image.open(ASSETS / "logo.png").convert("RGB")
-    a = np.array(img).astype(int)
-    h, w = a.shape[:2]
-    cx = w // 2
-    r = int(w * 0.225)
-    for y in list(range(r)) + list(range(h - r, h)):
-        ref = a[y, cx]
-        a[y, 0:r] = ref
-        a[y, w - r:w] = ref
-    out = Image.fromarray(a.astype(np.uint8), "RGB")
-    out.save(ASSETS / "logo.png")
-    out.save(ASSETS / "banner.png")
-    print("logo squared to full-bleed tile + banner.png written")
+    img.save(ASSETS / "logo.png")
+    img.save(ASSETS / "himaya-banner.png")
+    print("logo.png + himaya-banner.png drawn (programmatic, artifact-free)")
 
 
 def social_preview() -> None:
@@ -255,11 +253,8 @@ def main() -> None:
         assert (r + g + b) / 3 < 80, f"light RGB under transparency at {corner}"
     print("icon.png + icon.ico rebuilt (vector-style, anti-fringe)")
 
-    import os
-    if os.environ.get("HIMAYA_SKIP_LOGO_CLEAN") != "1":
-        clean_logo()
-        square_banner()
-        social_preview()
+    banner()
+    social_preview()
 
 
 if __name__ == "__main__":
