@@ -23,3 +23,6 @@ Thumbs.db
 
 # Installer build output
 installer/output/
+
+# Staged OCR bundle (build-time only)
+installer/bundle/

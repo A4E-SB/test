@@ -67,6 +67,17 @@ def main() -> int:
     check("CI workflow exists",
           wf.exists() and "himaya.iss" in wf.read_text(encoding="utf-8"))
 
+    check("installer bundles OCR component",
+          "bundle\\tesseract\\*" in iss and "skipifsourcedoesntexist" in iss)
+    desktop_task = [l for l in iss.splitlines() if l.strip().startswith('Name: "desktopicon"')]
+    check("installer defaults to desktop icon (no unchecked flag)",
+          len(desktop_task) == 1 and "unchecked" not in desktop_task[0])
+    cfg = (ROOT / "himaya" / "config.py").read_text(encoding="utf-8")
+    det = (ROOT / "himaya" / "services" / "detector.py").read_text(encoding="utf-8")
+    check("app auto-detects bundled OCR",
+          "def bundled_tesseract" in cfg and "config.bundled_tesseract()" in det)
+    check("CI stages OCR bundle", "tesseract" in wf.read_text(encoding="utf-8"))
+
     gi = (ROOT / ".gitignore").read_text(encoding="utf-8")
     check("gitignore excludes installer output", "installer/output" in gi)
 

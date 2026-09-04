@@ -1,12 +1,14 @@
 # ============================================================================
-#  Himaya — build the Windows installer (setup.exe) automatically on GitHub.
+#  Himaya — build the ALL-IN-ONE Windows installer (setup.exe) on GitHub.
 #
 #  Two ways to trigger:
 #    1. Push a tag:  git tag v1.0.0 && git push origin v1.0.0
 #       -> creates a GitHub Release with Himaya-Setup-x.y.z.exe attached
 #    2. Actions tab -> "Build Windows installer" -> Run workflow
 #
-#  The resulting setup.exe is also always available as a build artifact.
+#  The setup.exe bundles everything: app + Python runtime + Tesseract OCR,
+#  so end users install with zero prerequisites, fully offline.
+#  It is also always available as a downloadable artifact.
 # ============================================================================
 
 name: Build Windows installer
@@ -37,6 +39,32 @@ jobs:
 
       - name: Build portable exe (PyInstaller)
         run: pyinstaller --noconfirm himaya.spec
+
+      - name: Stage Tesseract OCR bundle (offline, out of the box)
+        shell: pwsh
+        run: |
+          choco install tesseract-ocr -y --no-progress
+          $src = "C:\Program Files\Tesseract-OCR"
+          $dst = "installer\bundle\tesseract"
+          New-Item -ItemType Directory -Force -Path "$dst\tessdata" | Out-Null
+          # engine binaries + dlls (skip docs and full language pack)
+          Get-ChildItem $src |
+            Where-Object { $_.Name -notin @("tessdata", "doc") } |
+            Copy-Item -Destination $dst -Recurse -Force
+          # keep only the languages Himaya uses (receipts are FR/EN)
+          $keep = @("eng.traineddata", "osd.traineddata", "fra.traineddata")
+          Get-ChildItem "$src\tessdata" -Filter *.traineddata -ErrorAction SilentlyContinue |
+            Where-Object { $keep -contains $_.Name } |
+            Copy-Item -Destination "$dst\tessdata" -Force
+          # make sure eng+fra are present whatever the installer shipped
+          foreach ($lang in @("eng", "fra")) {
+            if (!(Test-Path "$dst\tessdata\$lang.traineddata")) {
+              Invoke-WebRequest "https://github.com/tesseract-ocr/tessdata_fast/raw/main/$lang.traineddata" `
+                -OutFile "$dst\tessdata\$lang.traineddata" -UseBasicParsing
+            }
+          }
+          $sum = (Get-ChildItem $dst -Recurse | Measure-Object -Property Length -Sum).Sum
+          Write-Host ("OCR bundle staged: {0:N1} MB" -f ($sum / 1MB))
 
       - name: Locate Inno Setup
         id: iscc

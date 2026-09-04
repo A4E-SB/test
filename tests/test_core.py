@@ -407,6 +407,23 @@ def test_i18n() -> None:
     check("58 wilayas", len(__import__("himaya.wilayas", fromlist=["WILAYAS"]).WILAYAS) == 58)
 
 
+def test_bundled_tesseract(tmp: Path) -> None:
+    print("[config] bundled tesseract resolution")
+    from himaya import config
+    orig = config.ASSETS_DIR
+    d = tmp / "assets_t" / "tesseract"
+    d.mkdir(parents=True)
+    (d / "tesseract.exe").write_bytes(b"")
+    config.ASSETS_DIR = tmp / "assets_t"
+    try:
+        found = config.bundled_tesseract()
+        check("bundled tesseract found", found.endswith("tesseract.exe"), found)
+    finally:
+        config.ASSETS_DIR = orig
+    check("no bundle -> empty string", config.bundled_tesseract() == ""
+          or config.bundled_tesseract().endswith("tesseract.exe"))
+
+
 def test_wilaya_rtl() -> None:
     print("[wilayas]")
     from himaya.wilayas import wilaya_ar, WILAYA_NAMES_FR
@@ -434,6 +451,7 @@ def main() -> int:
     test_settings_templates(tmp)
     test_i18n()
     test_wilaya_rtl()
+    test_bundled_tesseract(tmp)
     print(f"\n{'=' * 50}\n{PASS} passed, {FAIL} failed")
     if FAILURES:
         print("Failures:")

@@ -110,6 +110,27 @@ CURRENCY_FR = "DA"
 CURRENCY_AR = "دج"
 
 
+def bundled_tesseract() -> str:
+    """
+    Path to a Tesseract OCR engine bundled NEXT TO the app (installer build).
+
+    OCR engine resolution order:
+      1. explicit setting (Settings page),
+      2. <app dir>\\tesseract\\tesseract.exe  (bundled by the installer),
+      3. system PATH (pytesseract default).
+    Returns '' when nothing is bundled.
+    """
+    candidates = []
+    if getattr(sys, "frozen", False):            # PyInstaller build
+        candidates.append(Path(sys.executable).parent / "tesseract" / "tesseract.exe")
+    candidates.append(ASSETS_DIR / "tesseract" / "tesseract.exe")  # dev layout
+    candidates.append(Path(__file__).resolve().parent.parent / "tesseract" / "tesseract.exe")
+    for cand in candidates:
+        if cand.exists():
+            return str(cand)
+    return ""
+
+
 def fmt_money(amount: float, lang: str = "fr") -> str:
     """Format an amount in DZD, e.g. 12 500 DA / 12 500 دج."""
     try:

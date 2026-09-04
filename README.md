@@ -73,46 +73,39 @@ pyinstaller --noconfirm --onefile --windowed --name Himaya --icon assets/icon.ic
 `opencv-python-headless` par une build réduite et gardez les `excludes` de
 `himaya.spec` pour rester sous 100 Mo.
 
-## 🧱 Créer l'installateur (setup.exe)
+## 🧱 L'installateur tout-en-un (setup.exe)
 
-Deux méthodes — dans les deux cas le résultat est un **installateur Windows
-classique** : `installer\output\Himaya-Setup-1.0.0.exe`.
+**Un seul fichier. Double-clic → Suivant → Suivant → Terminé → l'application s'ouvre.**
+Tout est inclus : l'application, le moteur Python complet, **et le moteur OCR**
+(détection de faux reçus opérationnelle dès l'installation). Aucun prérequis,
+aucune connexion internet, aucun réglage — ça marche sur n'importe quel
+Windows 10/11 (4 Go RAM suffisent).
 
-### Méthode A — sur votre PC Windows (recommandé)
+L'installateur ajoute : raccourci bureau + menu Démarrer, assistant en
+**français**, désinstalleur propre qui **demande** avant de toucher aux
+données (`%APPDATA%\Himaya`). Installation silencieuse en masse :
+`Himaya-Setup-1.0.0.exe /VERYSILENT /SUPPRESSMSGBOXES`.
 
-1. Installez **Inno Setup 6** (gratuit) : https://jrsoftware.org/isdl.php
-2. Double-cliquez sur :
+### Méthode A — sur votre PC Windows
+
+1. Installez **Inno Setup 6** (gratuit, une seule fois) : https://jrsoftware.org/isdl.php
+2. Double-cliquez :
 
 ```bat
 build_installer.bat
 ```
 
-Le script fait tout : environnement virtuel → dépendances → PyInstaller →
-`setup.exe`. Si Inno Setup n'est pas détecté, passez son chemin en argument :
+Le script fait tout : venv → dépendances → PyInstaller → récupération du moteur
+OCR (Tesseract, copié depuis votre PC ou téléchargé une fois au moment du
+build — jamais chez l'utilisateur final) → `installer\output\Himaya-Setup-1.0.0.exe`.
 
-```bat
-build_installer.bat "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-```
+### Méthode B — compilé automatiquement sur GitHub (zéro PC requis)
 
-L'installateur offre : assistant en **français** (+ anglais), licence MIT,
-icône bureau/menu Démarrer (optionnelles), désinstalleur propre, et à la
-désinstallation il **demande** avant de toucher à vos données
-(`%APPDATA%\Himaya`) — aucune perte accidentelle de base clients.
-
-Installation silencieuse (déploiement en masse / magasin) :
-
-```bat
-Himaya-Setup-1.0.0.exe /VERYSILENT /SUPPRESSMSGBOXES
-```
-
-### Méthode B — compilation automatique sur GitHub (aucun PC requis)
-
-Le dépôt contient un workflow `.github/workflows/build-windows.yml` :
-
-- Onglet **Actions** → *Build Windows installer* → **Run workflow** :
-  le `setup.exe` apparaît en *artifact* téléchargeable ;
-- ou poussez un tag : `git tag v1.0.0 && git push origin v1.0.0` —
-  une **Release** est créée automatiquement avec l'installateur attaché.
+- Onglet **Actions** → *Build Windows installer* → **Run workflow** →
+  téléchargez le `setup.exe` dans les *artifacts* ;
+- ou poussez un tag (`git tag v1.0.0 && git push origin v1.0.0`) : une
+  **Release** est créée automatiquement avec l'installateur attaché, prêt à
+  partager par lien.
 
 ### Contenu de `installer/`
 

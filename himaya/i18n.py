@@ -263,7 +263,7 @@ _TR = {
     "set_bm_phone": {"fr": "Téléphone BaridiMob", "ar": "هاتف BaridiMob"},
     "set_default_delivery": {"fr": "Société de livraison par défaut", "ar": "شركة التوصيل الافتراضية"},
     "set_default_shipping": {"fr": "Frais de livraison par défaut (DA)", "ar": "مصاريف التوصيل الافتراضية (دج)"},
-    "set_tesseract": {"fr": "Chemin de Tesseract (OCR, optionnel)", "ar": "مسار Tesseract (OCR، اختياري)"},
+    "set_tesseract": {"fr": "Chemin de Tesseract (vide = OCR intégré / PATH)", "ar": "مسار Tesseract (فارغ = OCR المدمج)"},
     "set_label_size": {"fr": "Format d'étiquette", "ar": "مقاس البطاقة"},
     "set_data": {"fr": "Données & sauvegarde", "ar": "البيانات والنسخ الاحتياطي"},
     "set_backup_now": {"fr": "Sauvegarder maintenant", "ar": "نسخ احتياطي الآن"},

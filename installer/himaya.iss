@@ -1,9 +1,16 @@
 ; ============================================================================
-;  Himaya (حماية) — Inno Setup script  ->  Himaya-Setup-<version>.exe
+;  Himaya (حماية) — ALL-IN-ONE installer  ->  Himaya-Setup-<version>.exe
 ;
-;  Prerequisite: the portable build must exist first:
-;      build_installer.bat   (does everything: venv -> PyInstaller -> this script)
-;  or manually:
+;  Goal: one file, double-click, Suivant -> Suivant -> Terminé, done.
+;  The setup.exe bundles the ENTIRE app:
+;     • Himaya.exe (Python runtime + all libraries, no internet needed)
+;     • Tesseract OCR engine (fra+eng) -> fake-receipt detection works
+;       out of the box, nothing else to install
+;     • Shortcuts, uninstaller, French/English wizard
+;
+;  Build (does everything automatically):
+;      build_installer.bat
+;  Manual:
 ;      pyinstaller --noconfirm himaya.spec
 ;      ISCC.exe installer\himaya.iss
 ;
@@ -19,8 +26,8 @@
 #define MyAppExeName "Himaya.exe"
 
 [Setup]
-; NOTE: The value of AppId uniquely identifies this application.
-; Never change it after shipping the first installer (uninstall/updates depend on it).
+; NOTE: never change AppId after shipping the first installer
+; (updates/uninstall depend on it).
 AppId={{7A6C81D4-52F9-4B0E-9C3D-1E5A84B2F6C9}
 AppName={#MyAppName} ({#MyAppNameAr})
 AppVersion={#MyAppVersion}
@@ -32,10 +39,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-; MIT license shown during install
 LicenseFile=..\LICENSE
-; Uncomment the next line to disable the license page if you remove the file
-; LicenseFile=
 OutputDir=output
 OutputBaseFilename=Himaya-Setup-{#MyAppVersion}
 SetupIconFile=..\assets\icon.ico
@@ -44,31 +48,36 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesInstallIn64BitMode=x64compatible
-ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64
 MinVersion=10.0
 PrivilegesRequiredOverridesAllowed=dialog
-; smaller download / can fit a USB key alongside the portable build
-; (the app itself is ~70-95 MB; the installer compresses it to roughly 40-60 MB)
 
 [Languages]
-; English is Inno's default; French is the main language for Algerian sellers.
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [CustomMessages]
-french.DataDirQuestion=Voulez-vous aussi supprimer vos données Himaya (clients, commandes, liste noire) ?%n%nSi vous prévoyez de réinstaller Himaya, cliquez sur Non pour les conserver.
+french.FullInstall=Installation complète (application + moteur OCR de détection des faux reçus)
 french.LaunchProgram=Lancer {#MyAppName}
-english.DataDirQuestion=Do you also want to remove your Himaya data (customers, orders, blacklist)?%n%nClick No to keep it if you plan to reinstall Himaya.
+french.DataDirQuestion=Voulez-vous aussi supprimer vos données Himaya (clients, commandes, liste noire) ?%n%nSi vous prévoyez de réinstaller Himaya, cliquez sur Non pour les conserver.
+english.FullInstall=Full installation (application + OCR engine for fake-receipt detection)
 english.LaunchProgram=Launch {#MyAppName}
+english.DataDirQuestion=Do you also want to remove your Himaya data (customers, orders, blacklist)?%n%nClick No to keep it if you plan to reinstall Himaya.
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1
+; "ez" defaults: desktop icon ON, OCR ON — the user can just click Suivant.
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "ocr"; Description: "{cm:FullInstall}"; GroupDescription: "{cm:FullInstall}"
 
 [Files]
-; the whole PyInstaller output folder (Himaya.exe + DLLs + assets)
+; the whole PyInstaller output folder (Himaya.exe + Python + libraries + assets)
 Source: "..\dist\Himaya\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; bundled Tesseract OCR (staged by build_installer.bat / CI). If the bundle
+; was not staged the flag below makes the installer build anyway (app still
+; works: hash + metadata + pixel forensics, and the setting can point to an
+; existing Tesseract install).
+Source: "bundle\tesseract\*"; DestDir: "{app}\tesseract"; Flags: ignoreversion recursesubdirs skipifsourcedoesntexist; Tasks: ocr
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -76,11 +85,8 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
+; app starts right after the last click (unless silent install)
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall skipifsilent
-
-[UninstallDelete]
-; remove generated PDF labels etc. inside {app} (user data in %APPDATA% is
-; handled separately by the prompt below)
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

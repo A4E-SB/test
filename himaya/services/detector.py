@@ -35,6 +35,7 @@ try:  # OpenCV is used for pixel forensics only — degrade gracefully if absent
 except ImportError:  # pragma: no cover
     HAS_CV2 = False
 
+from .. import config
 from ..database.db import Database
 from ..models import screenshots as screenshots_model
 from .phone import normalize_phone
@@ -110,8 +111,9 @@ def _ocr_text(image: Image.Image, tesseract_cmd: str = "") -> tuple[str, bool]:
     """Run pytesseract (fra+eng). Returns (text, ok). Never raises."""
     try:
         import pytesseract
-        if tesseract_cmd:
-            pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+        cmd = tesseract_cmd or config.bundled_tesseract()
+        if cmd:
+            pytesseract.pytesseract.tesseract_cmd = cmd
         # upscale improves OCR on small phone screenshots
         w, h = image.size
         scale = 2 if max(w, h) < 1500 else 1
