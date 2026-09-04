@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/himaya-banner.png" width="240" alt="شعار حماية"></p>
+<p align="center"><img src="assets/brand.png" width="240" alt="شعار حماية"></p>
 
 # 🛡️ حماية (Himaya)
 
@@ -40,7 +40,7 @@
 
 <div dir="rtl">
 
-➡️ **[Himaya-Setup-1.0.5.exe — أحدث إصدار](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+➡️ **[Himaya-Setup-1.0.6.exe — أحدث إصدار](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
 ملف واحد (حوالي 83 ميغا): نقرة مزدوجة ← التالي ← التالي ← إنهاء.
 التطبيق + محرك Python + محرك OCR مدمجون، لا يحتاج أي اتصال بالإنترنت.
 
@@ -64,7 +64,7 @@
 </div>
 
 ```
-Himaya-Setup-1.0.5.exe /VERYSILENT /SUPPRESSMSGBOXES
+Himaya-Setup-1.0.6.exe /VERYSILENT /SUPPRESSMSGBOXES
 ```
 
 <div dir="rtl">
@@ -83,13 +83,13 @@ build_installer.bat
 <div dir="rtl">
 
 السكريبت يقوم بكل شيء: بيئة افتراضية ← التبعيات ← PyInstaller ← تجهيز
-محرك OCR ← `installer\output\Himaya-Setup-1.0.5.exe`.
+محرك OCR ← `installer\output\Himaya-Setup-1.0.6.exe`.
 
 ### الطريقة ب — يُبنى تلقائياً على GitHub (بدون حاسوب)
 
 - تبويب **Actions** ← *Build Windows installer* ← **Run workflow** ← حمّل
   `setup.exe` من *artifacts*؛
-- أو ادفع وسم إصدار (`git tag v1.0.5 && git push origin v1.0.5`): تُنشأ
+- أو ادفع وسم إصدار (`git tag v1.0.6 && git push origin v1.0.6`): تُنشأ
   **Release** تلقائياً مع المثبّت مرفقاً.
 
 </div>
