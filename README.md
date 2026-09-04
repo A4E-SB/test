@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" width="240" alt="Himaya logo"></p>
+
 # 🛡️ Himaya (حماية)
 
 **Application desktop 100% hors ligne pour les vendeurs e-commerce algériens.**

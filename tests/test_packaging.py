@@ -51,6 +51,8 @@ def main() -> int:
     check("installer ships French wizard language",
           'Languages\\French.isl' in iss)
     check("setup icon present", (ROOT / "assets" / "icon.ico").exists())
+    check("brand logo present", (ROOT / "assets" / "logo.png").exists()
+          and (ROOT / "tools" / "make_logo_assets.py").exists())
 
     vinfo = (ROOT / "installer" / "file_version_info.txt").read_text(encoding="utf-8")
     check("exe version info synced", f"('{ver}')" in vinfo

@@ -84,10 +84,20 @@ class HimayaApp(_Root):
         self.sidebar.grid_propagate(False)
         self.sidebar.grid_rowconfigure(len(PAGES) + 2, weight=1)
 
-        ctk.CTkLabel(self.sidebar, text="🛡️ Himaya",
-                     font=F(24, "bold"),
-                     text_color=config.COLOR_ACCENT).grid(row=0, column=0, padx=22,
-                                                          pady=(24, 2), sticky="w")
+        # brand block: logo + name (falls back to text if the asset is missing)
+        brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        brand.grid(row=0, column=0, padx=18, pady=(20, 2), sticky="w")
+        try:
+            from PIL import Image as PILImage
+            self._logo_img = ctk.CTkImage(
+                light_image=PILImage.open(config.ASSETS_DIR / "icon.png"),
+                size=(44, 44))
+            ctk.CTkLabel(brand, image=self._logo_img, text="").pack(side="left",
+                                                                    padx=(0, 10))
+        except Exception:
+            pass
+        ctk.CTkLabel(brand, text="Himaya", font=F(24, "bold"),
+                     text_color=config.COLOR_ACCENT).pack(side="left")
         ctk.CTkLabel(self.sidebar, text="حماية — 100% hors ligne",
                      font=F(11), text_color=config.COLOR_FG_DIM
                      ).grid(row=1, column=0, padx=22, pady=(0, 18), sticky="w")
