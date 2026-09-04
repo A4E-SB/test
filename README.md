@@ -2,156 +2,131 @@
 
 # 🛡️ Himaya (حماية)
 
-**Application desktop 100% hors ligne pour les vendeurs e-commerce algériens.**
-تطبيق مكتبي يعمل بدون إنترنت لحماية البائعين الجزائريين من النصب والطلبيات الوهمية.
+**English** | [Français](README.fr.md) | [العربية](README.ar.md)
 
-> **Zéro internet. Zéro serveur. Zéro abonnement.** Toutes les données, toute
-> l'analyse et toutes les impressions se passent sur votre PC. — **بدون إنترنت، بدون سيرفر، بدون اشتراك.**
+**A 100% offline desktop app that protects Algerian e-commerce sellers from scams, ghost orders and fake payment receipts.**
+
+> **Zero internet. Zero servers. Zero subscriptions.** All data, all analysis
+> and all printing happen on your PC.
 
 ---
 
-## 🇫🇷 Fonctionnalités
+## ✨ Features
 
 | Module | Description |
 |---|---|
-| 📊 **Tableau de bord** | Résumé du jour (commandes, expéditions, fantômes), alertes arnaque, graphique revenus/pertes sur 6 mois, taux de complétion, argent économisé |
-| 👥 **Clients** | Base complète avec **score de confiance auto (0-100)**, étiquettes automatiques (Fiable / Fantôme / Escroc / Perditeur de temps / Nouveau), historique, argent perdu par client |
-| 📦 **Commandes** | Cycle complet (En attente → Confirmée → Expédiée → Livrée → Payée) + statuts d'arnaque (Fantôme, Refusée, Téléphone éteint, Faux paiement, Annulée, **Bloquée**), filtres statut/wilaya/date |
-| 🔍 **Détecteur de faux reçus** | Analyse locale des captures BaridiMob : OCR (Tesseract), empreinte d'image (dHash) contre les faux déjà connus, métadonnées (traces de PicsArt/Snapseed…), cohérence de police (OpenCV), analyse ELA, format date/référence/montant. Verdict **RÉEL / SUSPECT / FAUX** avec raisons |
-| ⏳ **Perditeur de temps** | Journal de chaque contact, taux de conversion, suggestion automatique de demander un **acompte**, réponses intelligentes AR/FR prêtes à coller dans Messenger/WhatsApp |
-| 💰 **Rapports financiers** | Revenus, frais, profit net, détail des pertes (fantômes / refus / faux paiements), argent économisé par les blocages. Export CSV / Excel |
-| 🔌 **Import / Export USB** | **Fichier `.hma`** : la liste noire officielle Himaya à partager sur clé USB entre vendeurs. Export/import des commandes CSV / Excel |
-| 🖨️ **Étiquettes** | PDF A6 (105×148) ou 100×100 avec niveau de risque coloré, code-barres, avertissements (« Appeler avant la livraison ») |
-| ⚙️ **Paramètres** | Langue FR/AR, infos CCP/BaridiMob (pour les acomptes), société de livraison par défaut, sauvegarde/restauration, 58 wilayas intégrées |
+| 📊 **Dashboard** | Today's summary (orders, shipments, ghosts), scam alerts, 6-month revenue-vs-losses chart, completion rate, money saved |
+| 👥 **Customers** | Full CRM with an **auto trust score (0-100)**, automatic tags (Trusted / Ghost / Scammer / Time-waster / New), order history, money lost per customer |
+| 📦 **Orders** | Full lifecycle (Pending → Confirmed → Shipped → Delivered → Paid) + fraud statuses (Ghosted, Refused, Phone off, Fake payment, Canceled, **Blocked**), filters by status/wilaya/date |
+| 🔍 **Fake receipt detector** | Local analysis of BaridiMob screenshots: OCR (Tesseract), image fingerprint (dHash) against known fakes, metadata (PicsArt/Snapseed traces…), font consistency (OpenCV), ELA, date/reference/amount format checks. Verdict **REAL / SUSPICIOUS / FAKE** with reasons |
+| ⏳ **Time-waster tracker** | Log every contact, conversion rate, automatic suggestions of when to ask for a **deposit**, smart AR/FR reply templates ready to paste into Messenger/WhatsApp |
+| 💰 **Financial reports** | Revenue, costs, net profit, loss breakdown (ghosts / refusals / fake payments), money saved by blocking. CSV / Excel export |
+| 🔌 **USB import / export** | The **`.hma` file**: Himaya's official blacklist to share between sellers on a USB key. Orders CSV/Excel import & export |
+| 🖨️ **Delivery labels** | A6 (105×148) or 100×100 PDF with color-coded risk level, barcode, warnings ("Call before delivery") |
+| ⚙️ **Settings** | FR/AR UI language, CCP/BaridiMob account info (for deposits), default delivery company, backup/restore, all 58 wilayas built in |
 
-## 🇩🇿 الميزات (باختصار)
-
-- حماية تعمل محليا 100% — معطياتك تبقى في جهازك (ملف واحد `himaya.db`)
-- كشف وصولات BaridiMob المزيفة بالذكاء الاصطناعي المحلي (OCR + تحليل البكسل)
-- قائمة سوداء للأرقام المشبوهة تُشارك بين البائعين عبر فلاشة USB (ملف `.hma`)
-- نقطة ثقة تلقائية لكل زبون + تصنيفات (نصاب، شبح، مضيع وقت، موثوق)
-- تقارير مالية: الأرباح، الخسائر، والمال الذي وفّرته الحماية
-- بطاقات توصيل PDF مع مستوى الخطر — تطبع على أي طابعة
+The UI itself is fully bilingual **French ⇄ Arabic (RTL)** with one click.
 
 ---
 
-## 📥 Installation (développeur)
+## ⬇️ Download the installer (already compiled for you)
 
-**Prérequis :** Python 3.11+ (https://python.org — cochez *Add to PATH*)
+➡️ **[Himaya-Setup-1.0.1.exe — latest release](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+One file (~83 MB): double-click → Next → Next → Finish. App + Python runtime +
+OCR engine included, no internet connection required.
 
-```bat
-git clone <ce dépôt> himaya
-cd himaya
-pip install -r requirements.txt
-python main.py
-```
+## 🧱 The all-in-one installer
 
-### OCR complet (optionnel mais recommandé)
+**One file. Install it and you have the full app.** Everything is bundled:
+the application, the whole Python runtime **and the OCR engine** (fake-receipt
+detection works out of the box). No prerequisites, no internet, no setup —
+works on any Windows 10/11 PC (4 GB RAM is enough).
 
-Le détecteur fonctionne sans Tesseract (empreinte + métadonnées + pixels),
-mais l'extraction du montant/date/référence nécessite le moteur OCR local :
+The installer adds: desktop + Start Menu shortcuts, a **French** wizard, a
+clean uninstaller that **asks** before touching your data (`%APPDATA%\Himaya`).
+Silent/bulk install:
+`Himaya-Setup-1.0.1.exe /VERYSILENT /SUPPRESSMSGBOXES`
 
-1. Téléchargez **Tesseract-OCR for Windows** (UB Mannheim) : https://github.com/UB-Mannheim/tesseract/wiki
-2. Installez avec les langues **French** (+ Arabic si possible)
-3. Si installé hors du PATH, mettez le chemin dans *Paramètres → Chemin de Tesseract*
-   (ex. `C:\Program Files\Tesseract-OCR\tesseract.exe`)
+### Option A — on your Windows PC
 
-> Le paquet `tesseract-ocr-fra` doit être sélectionné pendant l'installation.
-
-## 📦 Créer le .exe (PyInstaller)
-
-```bat
-build_windows.bat
-```
-
-Résultat : `dist\Himaya\Himaya.exe` — dossier portable, copiable sur n'importe
-quel PC Windows 10/11 (même 4 Go de RAM). Pour un fichier unique :
-
-```bat
-pyinstaller --noconfirm --onefile --windowed --name Himaya --icon assets/icon.ico --add-data "assets;assets" --add-data "himaya/database/schema.sql;himaya/database" main.py
-```
-
-**Taille** : ~70-95 Mo avec OpenCV. Si besoin, remplacez
-`opencv-python-headless` par une build réduite et gardez les `excludes` de
-`himaya.spec` pour rester sous 100 Mo.
-
-## ⬇️ Télécharger l'installateur (déjà compilé)
-
-➡️ **[Himaya-Setup-1.0.0.exe — Release v1.0.0](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
-Un seul fichier (≈82 Mo) : double-cliquez, Suivant → Suivant → Terminé.
-Application + Python + moteur OCR inclus, aucune connexion requise.
-
-## 🧱 L'installateur tout-en-un (setup.exe)
-
-**Un seul fichier. Double-clic → Suivant → Suivant → Terminé → l'application s'ouvre.**
-Tout est inclus : l'application, le moteur Python complet, **et le moteur OCR**
-(détection de faux reçus opérationnelle dès l'installation). Aucun prérequis,
-aucune connexion internet, aucun réglage — ça marche sur n'importe quel
-Windows 10/11 (4 Go RAM suffisent).
-
-L'installateur ajoute : raccourci bureau + menu Démarrer, assistant en
-**français**, désinstalleur propre qui **demande** avant de toucher aux
-données (`%APPDATA%\Himaya`). Installation silencieuse en masse :
-`Himaya-Setup-1.0.0.exe /VERYSILENT /SUPPRESSMSGBOXES`.
-
-### Méthode A — sur votre PC Windows
-
-1. Installez **Inno Setup 6** (gratuit, une seule fois) : https://jrsoftware.org/isdl.php
-2. Double-cliquez :
+1. Install **Inno Setup 6** (free, one time): https://jrsoftware.org/isdl.php
+2. Double-click:
 
 ```bat
 build_installer.bat
 ```
 
-Le script fait tout : venv → dépendances → PyInstaller → récupération du moteur
-OCR (Tesseract, copié depuis votre PC ou téléchargé une fois au moment du
-build — jamais chez l'utilisateur final) → `installer\output\Himaya-Setup-1.0.0.exe`.
+The script does everything: venv → dependencies → PyInstaller → OCR engine
+staging (copied from your PC or downloaded once at build time — never on the
+end user's machine) → `installer\output\Himaya-Setup-1.0.1.exe`.
 
-### Méthode B — compilé automatiquement sur GitHub (zéro PC requis)
+### Option B — built automatically on GitHub (no PC required)
 
-- Onglet **Actions** → *Build Windows installer* → **Run workflow** →
-  téléchargez le `setup.exe` dans les *artifacts* ;
-- ou poussez un tag (`git tag v1.0.0 && git push origin v1.0.0`) : une
-  **Release** est créée automatiquement avec l'installateur attaché, prêt à
-  partager par lien.
-
-### Contenu de `installer/`
-
-| Fichier | Rôle |
-|---|---|
-| `himaya.iss` | Script Inno Setup (version, raccourcis, désinstalleur, prompt données) |
-| `file_version_info.txt` | Métadonnées de version de `Himaya.exe` (Propriétés → Détails) |
-
-> ⚠️ Ne changez jamais le `AppId` du script après la première distribution
-> (c'est lui qui lie les mises à jour/désinstallations). Pour publier une
-> nouvelle version : incrémentez `__version__` dans `himaya/__init__.py`,
-> mettez à jour `MyAppVersion` et `filevers` — `tests/test_packaging.py`
-> vérifie que tout reste synchronisé.
-
+- **Actions** tab → *Build Windows installer* → **Run workflow** → download
+  the `setup.exe` from the *artifacts*;
+- or push a tag (`git tag v1.0.2 && git push origin v1.0.2`): a **Release**
+  is created automatically with the installer attached.
 
 ---
 
-## 🗄️ Où sont mes données ?
+## 📥 Running from source (developers)
 
-Un seul dossier, facile à sauvegarder ou copier sur USB :
+**Prerequisite:** Python 3.11+ (https://python.org — check *Add to PATH*)
 
-| OS | Emplacement |
+```bash
+git clone https://github.com/belmezouarsouhil95-byte/test himaya
+cd himaya
+pip install -r requirements.txt
+python main.py
+```
+
+### Full OCR (optional when running from source)
+
+The detector works without Tesseract (fingerprint + metadata + pixel
+forensics), but extracting amount/date/reference needs the local OCR engine:
+
+1. Download **Tesseract-OCR for Windows** (UB Mannheim): https://github.com/UB-Mannheim/tesseract/wiki
+2. Install with the **French** language pack (+ Arabic if available)
+3. If not on PATH, set it in *Settings → Tesseract path*
+   (e.g. `C:\Program Files\Tesseract-OCR\tesseract.exe`)
+
+### Portable .exe (PyInstaller)
+
+```bat
+build_windows.bat
+```
+
+Produces `dist\Himaya\Himaya.exe` — a portable folder that runs on any
+Windows 10/11 machine (even 4 GB RAM). For a single file:
+
+```bat
+pyinstaller --noconfirm --onefile --windowed --name Himaya --icon assets/icon.ico --add-data "assets;assets" --add-data "himaya/database/schema.sql;himaya/database" main.py
+```
+
+**Size:** ~70-95 MB with OpenCV.
+
+---
+
+## 🗄️ Where is my data?
+
+One single folder, easy to back up or copy to USB:
+
+| OS | Location |
 |---|---|
 | Windows | `%APPDATA%\Himaya\himaya.db` |
 | Linux/Mac | `~/.himaya/himaya.db` |
 
-- `himaya.db` : **toute** l'application (clients, commandes, liste noire…)
-- `evidence/` : copies horodatées des faux reçus analysés
-- `backups/` : sauvegardes (bouton *Sauvegarder maintenant* dans Paramètres)
+- `himaya.db`: the **whole** app (customers, orders, blacklist…)
+- `evidence/`: timestamped copies of analysed fake receipts
+- `backups/`: backups (*Backup now* button in Settings)
 
-Variable d'environnement `HIMAYA_DATA_DIR` ou `python main.py --db CHEMIN`
-pour placer la base ailleurs (ex. directement sur une clé USB).
+Set `HIMAYA_DATA_DIR` or run `python main.py --db PATH` to store the database
+elsewhere (e.g. directly on a USB key).
 
-## 🔐 Le format .hma (partage hors ligne)
+## 🔐 The .hma format (offline sharing)
 
-Un fichier `.hma` est un document JSON signé par l'en-tête `HIMAYA-BLACKLIST`,
-lisible par n'importe quelle instance de Himaya et vérifiable dans un éditeur
-de texte :
+A `.hma` file is a JSON document signed by the `HIMAYA-BLACKLIST` header,
+readable by any Himaya instance and checkable in a text editor:
 
 ```json
 {
@@ -160,67 +135,67 @@ de texte :
   "exported_at": "2026-09-04T15:30:00",
   "count": 2,
   "entries": [
-    {"phone": "0770999888", "reason": "faux reçu BaridiMob", "severity": 3,
+    {"phone": "0770999888", "reason": "fake BaridiMob receipt", "severity": 3,
      "reported_date": "2026-09-01"}
   ]
 }
 ```
 
-L'import **fusionne** (le niveau de sévérité le plus élevé gagne) — vos
-données ne sont jamais écrasées.
+Imports **merge** (highest severity wins) — your data is never overwritten.
 
-## 🧠 Score de confiance — comment il est calculé
+## 🧠 Trust score — how it's computed
 
-Départ à **50/100** (nouveau). Chaque commande bouge le score :
+Everyone starts at **50/100** (new). Each order moves the score:
 
-| Événement | Effet |
+| Event | Effect |
 |---|---|
-| Livrée | +10 |
-| Payée | +15 |
-| Fantôme | −25 |
-| Refusée | −12 |
-| Téléphone éteint | −10 |
-| Faux paiement | **−45 + plafonné à 10** |
-| Annulée | −6 |
-| Bloquée (liste noire) | −35 + plafonné |
+| Delivered | +10 |
+| Paid | +15 |
+| Ghosted | −25 |
+| Refused | −12 |
+| Phone off | −10 |
+| Fake payment | **−45 + pinned at 10** |
+| Canceled | −6 |
+| Blocked (blacklisted) | −35 + pinned |
 
-Fiable ≥ 80 (avec 3+ livraisons) · ⚠️ prudence 40-79 · 🚨 dangereux < 40.
+Trusted ≥ 80 (with 3+ deliveries) · ⚠️ caution 40-79 · 🚨 dangerous < 40.
 
-**Conventions financières** : revenu = commandes *payées* · perte fantôme/refus/téléphone éteint = frais de livraison · perte faux paiement = frais + prix complet (COD perdu) · **argent économisé** = frais de livraison évités sur les commandes *bloquées* avant expédition.
+**Financial conventions:** revenue = *paid* orders · ghost/refused/phone-off loss = shipping cost · fake-payment loss = shipping + full COD price · **money saved** = shipping costs avoided on orders *blocked* before shipping.
 
 ## ✅ Tests
 
 ```bash
-python tests/test_core.py       # 79 tests : DB, trust, détection, .hma, PDF, rapports
-python tests/test_ui_smoke.py   # interface complète (sans écran, via stubs)
-python tests/test_packaging.py  # cohérence versions exe / installateur / spec
+python tests/test_core.py       # 86 tests: DB, trust, detection, .hma, PDF, reports
+python tests/test_ui_smoke.py   # full UI, headless via stubs
+python tests/test_packaging.py  # version sync across app/spec/installer/CI
 ```
 
-## 📁 Structure du projet
+## 📁 Project structure
 
 ```
 himaya/
-├── main.py                  # point d'entrée (--db, --init-only)
+├── main.py                  # entry point (--db, --init-only)
 ├── requirements.txt
-├── himaya.spec              # config PyInstaller
-├── build_windows.bat        # build portable en 1 clic
-├── build_installer.bat      # setup.exe complet en 1 clic (PyInstaller + Inno Setup)
-├── installer/               # himaya.iss (Inno Setup) + version info de l'exe
-├── .github/workflows/       # build automatique du setup.exe sur GitHub
-├── assets/                  # icône, polices, modèles TFLite optionnels
-├── tools/make_icon.py       # régénère l'icône
-├── tests/                   # tests headless (core + UI)
+├── himaya.spec              # PyInstaller config
+├── build_windows.bat        # 1-click portable build
+├── build_installer.bat      # 1-click setup.exe (PyInstaller + Inno Setup)
+├── installer/               # himaya.iss (Inno Setup) + exe version info
+├── .github/workflows/       # automatic setup.exe builds on GitHub
+├── assets/                  # logo, icon, fonts, optional TFLite models
+├── tools/                   # logo/icon generators
+├── tests/                   # headless tests (core + UI + packaging)
 └── himaya/
-    ├── config.py            # chemins, couleurs, constantes métier
-    ├── wilayas.py           # les 58 wilayas (FR + AR)
-    ├── i18n.py              # traductions FR/AR complètes
-    ├── database/            # moteur SQLite + schéma + seed
-    ├── models/              # clients, commandes, liste noire, contacts, reçus, modèles, réglages
-    ├── services/            # trust, phone, detector (OCR/IA), reports, hma, labels, backup
-    └── ui/                  # app + 9 pages CustomTkinter
+    ├── config.py            # paths, colors, business constants
+    ├── wilayas.py           # the 58 wilayas (FR + AR)
+    ├── i18n.py              # complete FR/AR translations
+    ├── database/            # SQLite engine + schema + seed
+    ├── models/              # customers, orders, blacklist, inquiries, receipts…
+    ├── services/            # trust, phone, detector (OCR/AI), reports, hma, labels…
+    └── ui/                  # app + 9 CustomTkinter pages
 ```
 
-## 🤝 Licence & aide
+## 🤝 License & pledge
 
-Projet pour la communauté des vendeurs algériens. Aucune donnée ne quitte
-jamais votre ordinateur — c'est la promesse Himaya. وعد حماية: معطياتك لا تغادر جهازك أبدا.
+Built for the Algerian seller community (MIT License — see `LICENSE`).
+Your data never leaves your computer — that's the Himaya pledge.
+وعد حماية: معطياتك لا تغادر جهازك أبداً.
