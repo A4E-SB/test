@@ -1,4 +1,4 @@
-; ============================================================================
+﻿; ============================================================================
 ;  Himaya (حماية) — ALL-IN-ONE installer  ->  Himaya-Setup-<version>.exe
 ;
 ;  Goal: one file, double-click, Suivant -> Suivant -> Terminé, done.
@@ -8,15 +8,16 @@
 ;       out of the box, nothing else to install
 ;     • Shortcuts, uninstaller, French/English wizard
 ;
-;  Build (does everything automatically):
-;      build_installer.bat
-;  Manual:
-;      pyinstaller --noconfirm himaya.spec
-;      ISCC.exe installer\himaya.iss
+;  Build (does everything automatically):  build_installer.bat
+;  Manual:  pyinstaller --noconfirm himaya.spec   then  ISCC installer\himaya.iss
 ;
 ;  Inno Setup 6+ : https://jrsoftware.org/isinfo.php
 ;  Silent install:  Himaya-Setup-1.0.0.exe /VERYSILENT /SUPPRESSMSGBOXES
 ; ============================================================================
+
+; Root of the repo (folder containing this script's parent). All paths below
+; are anchored to {#SourcePath} so the script compiles from ANY working dir.
+#define Root "{#SourcePath}\.."
 
 #define MyAppName "Himaya"
 #define MyAppNameAr "حماية"
@@ -24,6 +25,11 @@
 #define MyAppPublisher "Himaya (community)"
 #define MyAppURL "https://github.com/belmezouarsouhil95-byte/test"
 #define MyAppExeName "Himaya.exe"
+
+; fail fast with a clear message if the portable build is missing
+#if !DirExists(Root + "\dist\Himaya")
+  #error "dist\Himaya not found - run PyInstaller first (build_installer.bat)"
+#endif
 
 [Setup]
 ; NOTE: never change AppId after shipping the first installer
@@ -39,10 +45,10 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-LicenseFile=..\LICENSE
-OutputDir=output
+LicenseFile={#Root}\LICENSE
+OutputDir={#SourcePath}\output
 OutputBaseFilename=Himaya-Setup-{#MyAppVersion}
-SetupIconFile=..\assets\icon.ico
+SetupIconFile={#Root}\assets\icon.ico
 UninstallDisplayName={#MyAppName} {#MyAppVersion}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/max
@@ -72,12 +78,11 @@ Name: "ocr"; Description: "{cm:FullInstall}"; GroupDescription: "{cm:FullInstall
 
 [Files]
 ; the whole PyInstaller output folder (Himaya.exe + Python + libraries + assets)
-Source: "..\dist\Himaya\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; bundled Tesseract OCR (staged by build_installer.bat / CI). If the bundle
-; was not staged the flag below makes the installer build anyway (app still
-; works: hash + metadata + pixel forensics, and the setting can point to an
-; existing Tesseract install).
-Source: "bundle\tesseract\*"; DestDir: "{app}\tesseract"; Flags: ignoreversion recursesubdirs skipifsourcedoesntexist; Tasks: ocr
+Source: "{#Root}\dist\Himaya\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; bundled Tesseract OCR (staged by build_installer.bat / CI). If not staged,
+; the installer still builds; the app then uses hash+metadata+pixel checks
+; and OCR can be pointed to an existing install in Settings.
+Source: "{#SourcePath}\bundle\tesseract\*"; DestDir: "{app}\tesseract"; Flags: ignoreversion recursesubdirs skipifsourcedoesntexist; Tasks: ocr
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

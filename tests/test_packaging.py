@@ -43,7 +43,7 @@ def main() -> int:
     check("installer has a stable AppId GUID",
           re.search(r"AppId=\{\{[0-9A-F-]{36}\}", iss) is not None)
     check("installer packages dist folder",
-          r"..\dist\Himaya\*" in iss)
+          "dist\\Himaya\\*" in iss)
     check("installer output name has version",
           f"Himaya-Setup-{{#MyAppVersion}}" in iss)
     check("installer asks before deleting user data",
