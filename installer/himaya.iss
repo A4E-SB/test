@@ -108,7 +108,7 @@ begin
     if DirExists(DataDir) then
     begin
       if MsgBox(ExpandConstant('{cm:DataDirQuestion}'), mbConfirmation,
-                MB_YES_NO or MB_DEFBUTTON2) = IDYES then
+                MB_YESNO) = IDYES then
         DelTree(DataDir, True, True, True);
     end;
   end;
