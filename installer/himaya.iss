@@ -16,8 +16,10 @@
 ; ============================================================================
 
 ; Root of the repo (folder containing this script's parent). All paths below
-; are anchored to {#SourcePath} so the script compiles from ANY working dir.
-#define Root "{#SourcePath}\.."
+; are anchored to SourcePath so the script compiles from ANY working dir.
+; NOTE: inside a #define line, use the ISPP expression "SourcePath + ..." —
+; nested inline {#...} directives are NOT expanded in directive lines.
+#define Root SourcePath + "\.."
 
 #define MyAppName "Himaya"
 #define MyAppNameAr "حماية"

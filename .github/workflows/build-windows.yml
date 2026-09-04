@@ -82,7 +82,38 @@ jobs:
           Write-Host "Using ISCC: $iscc"
 
       - name: Compile installer
-        run: '& "${{ steps.iscc.outputs.path }}" installer\himaya.iss'
+        id: compile
+        shell: pwsh
+        run: |
+          & "${{ steps.iscc.outputs.path }}" "installer\\himaya.iss" 2>&1 |
+            Tee-Object -FilePath iscc-output.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Report compile error (commit comment, readable without log access)
+        if: failure() && steps.compile.outcome == 'failure'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tail = (Get-Content iscc-output.log -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
+          if (-not $tail) { $tail = "(no ISCC output captured)" }
+          $body = "**ISCC compile failed** (run ${{ github.run_id }}):``````text`n$tail`n``````"
+          $payload = @{ body = $body } | ConvertTo-Json
+          Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/commits/$env:GITHUB_SHA/comments" `
+            -Method Post `
+            -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" } `
+            -ContentType "application/json" `
+            -Body $payload | Out-Null
+          Write-Host "failure comment posted"
+
+      - name: Upload ISCC log (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iscc-log
+          path: iscc-output.log
+          if-no-files-found: ignore
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
