@@ -1,0 +1,30 @@
+# Himaya — runtime dependencies (all local, zero network calls at runtime)
+#
+# Python 3.11+ recommended. Install with:
+#     pip install -r requirements.txt
+
+# GUI (modern dark theme on top of Tkinter)
+customtkinter==5.2.2
+darkdetect==0.8.0            # customtkinter dependency
+
+# Images / detection
+Pillow>=10.0.0               # image open/resize/perceptual hash
+opencv-python-headless>=4.8.0  # pixel forensics (headless = smaller, no GUI libs)
+pytesseract>=0.3.10          # OCR bridge (needs the Tesseract-OCR binary, see README)
+
+# Optional local ML classifier: drop a model in assets/models and uncomment
+# tflite-runtime==2.14.0     # NOTE: no Windows wheel — use tensorflow instead on Windows
+
+# PDF labels
+reportlab>=4.0.0
+arabic-reshaper>=3.0.0       # correct Arabic shaping in PDFs
+python-bidi>=0.4.2
+
+# Data import/export
+openpyxl>=3.1.0              # Excel
+
+# Optional: native drag & drop for the detector page (falls back to browse)
+tkinterdnd2>=0.4.2
+
+# --- build only (not needed at runtime) -------------------------------------
+# pyinstaller>=6.0.0

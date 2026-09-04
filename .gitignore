@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.spec.bak
+
+# Himaya local data (never commit user data)
+*.db
+*.db-journal
+*.hma
+backups/
+evidence/
+
+# OS
+Thumbs.db
+.DS_Store
