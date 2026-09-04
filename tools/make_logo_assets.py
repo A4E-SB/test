@@ -177,6 +177,31 @@ def clean_logo() -> None:
     print(f"logo.png cleaned: {int(conn.sum())} background pixels -> transparent")
 
 
+def square_banner() -> None:
+    """
+    Final logo state: ONE seamless full-bleed square tile.
+
+    The rounded-corner cutouts are blended into the tile's own vertical
+    gradient (centre column = pure gradient for every row), so the image has
+    no corners, no transparency, no edges — it renders identically on light
+    pages, dark pages and file previews. Also writes assets/banner.png
+    (fresh filename used by the READMEs — GitHub's image CDN caches URLs).
+    """
+    img = Image.open(ASSETS / "logo.png").convert("RGB")
+    a = np.array(img).astype(int)
+    h, w = a.shape[:2]
+    cx = w // 2
+    r = int(w * 0.225)
+    for y in list(range(r)) + list(range(h - r, h)):
+        ref = a[y, cx]
+        a[y, 0:r] = ref
+        a[y, w - r:w] = ref
+    out = Image.fromarray(a.astype(np.uint8), "RGB")
+    out.save(ASSETS / "logo.png")
+    out.save(ASSETS / "banner.png")
+    print("logo squared to full-bleed tile + banner.png written")
+
+
 def social_preview() -> None:
     """1280x640 social preview card (GitHub Settings -> Social preview)."""
 
@@ -233,6 +258,7 @@ def main() -> None:
     import os
     if os.environ.get("HIMAYA_SKIP_LOGO_CLEAN") != "1":
         clean_logo()
+        square_banner()
         social_preview()
 
 

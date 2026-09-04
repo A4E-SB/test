@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo.png" width="240" alt="Logo Himaya"></p>
+<p align="center"><img src="assets/banner.png" width="240" alt="Logo Himaya"></p>
 
 # 🛡️ Himaya (حماية)
 
