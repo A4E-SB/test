@@ -54,6 +54,27 @@ def main() -> int:
     check("brand logo present", (ROOT / "assets" / "logo.png").exists()
           and (ROOT / "tools" / "make_logo_assets.py").exists())
 
+    # anti-fringe icon checks (v1.0.4 icons showed white halos at small sizes)
+    from PIL import Image
+    icon = Image.open(ROOT / "assets" / "icon.png").convert("RGBA")
+    w, h = icon.size
+    corners_ok = all(icon.getpixel(c)[3] == 0 and
+                     sum(icon.getpixel(c)[:3]) / 3 < 80
+                     for c in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)])
+    check("icon corners transparent with dark RGB (anti-fringe)", corners_ok)
+    light_under = sum(
+        1 for x in range(0, w, 8) for y in range(0, h, 8)
+        if icon.getpixel((x, y))[3] == 0
+        and sum(icon.getpixel((x, y))[:3]) / 3 > 80)
+    check("no light RGB under any transparent pixel", light_under == 0,
+          f"{light_under} bad pixels")
+    small = icon.resize((32, 32), Image.LANCZOS)
+    halo = sum(
+        1 for x in range(32) for y in range(32)
+        if 20 < small.getpixel((x, y))[3] < 235
+        and sum(small.getpixel((x, y))[:3]) / 3 > 110)
+    check("no white halo when scaled to 32px", halo == 0, f"{halo} pixels")
+
     vinfo = (ROOT / "installer" / "file_version_info.txt").read_text(encoding="utf-8")
     check("exe version info synced", f"('{ver}')" in vinfo
           or f"'{ver}.0'" in vinfo or f"filevers=({ver.replace('.', ', ')}, 0)" in vinfo)

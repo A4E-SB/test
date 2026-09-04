@@ -23,7 +23,7 @@
 
 #define MyAppName "Himaya"
 #define MyAppNameAr "حماية"
-#define MyAppVersion "1.0.4"
+#define MyAppVersion "1.0.5"
 #define MyAppPublisher "Himaya (community)"
 #define MyAppURL "https://github.com/belmezouarsouhil95-byte/test"
 #define MyAppExeName "Himaya.exe"

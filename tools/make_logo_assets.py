@@ -1,77 +1,148 @@
 """
-Derive every brand asset from assets/logo.png (the master logo):
+Build every brand asset for Himaya.
 
-    assets/icon.png   — rounded app-icon tile (1024px, emblem-centred)
-    assets/icon.ico   — Windows multi-size icon (16..256)
-    assets/logo.png   — master, untouched (full logo with wordmark)
+Two sources, two purposes:
 
-The icon crops the EMBLEM (green shield) rather than the full logo so it
-stays readable at 16px in the Windows taskbar.
+  assets/logo.png  — the MASTER logo (AI-generated, full wordmark). Used for
+                     README banners and release pages. Never scaled to 16px.
 
-Run after replacing the master logo:  python tools/make_logo_assets.py
+  assets/icon.png / icon.ico — the APP ICON, drawn programmatically in the
+                     same visual identity (dark rounded tile + emerald shield
+                     + dark checkmark). Drawing it (instead of cropping the
+                     AI logo) guarantees:
+                       • crisp anti-aliased edges at any size (2x supersampled)
+                       • NO white fringes when Windows scales it down — every
+                         transparent pixel carries DARK RGB underneath
+                         (v1.0.4 icons showed light halos at small sizes
+                         because transparent pixels kept the light canvas
+                         colour of the generated logo)
+
+Run after changing the design:  python tools/make_logo_assets.py
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
-LOGO = ROOT / "assets" / "logo.png"
+ASSETS = ROOT / "assets"
+
+# palette (kept in sync with himaya/config.py)
+TILE_TOP = (23, 26, 32)       # dark tile gradient top
+TILE_BOTTOM = (17, 19, 24)    # dark tile gradient bottom
+EDGE_RGB = (18, 20, 26)       # RGB stored UNDER transparent pixels (anti-fringe)
+SHIELD_LIGHT = (52, 224, 133) # emerald gradient top
+SHIELD_DARK = (30, 178, 98)   # emerald gradient bottom
+CHECK = (14, 26, 20)          # dark checkmark
+
+SS = 4  # supersampling factor
 
 
-def find_emblem(img: Image.Image) -> tuple:
-    """Bounding box of the dominant green element (the shield)."""
-    rgb = img.convert("RGB")
-    w, h = rgb.size
-    px = rgb.load()
-    xs, ys = [], []
-    for y in range(0, h, 4):
-        for x in range(0, w, 4):
-            r, g, b = px[x, y]
-            if g > 130 and g > r + 40 and g > b + 30:  # green-ish
-                xs.append(x)
-                ys.append(y)
-    if not xs:
-        return (0, 0, w, h)
-    return (min(xs), min(ys), max(xs) + 1, max(ys) + 1)
+def _rounded_tile(size: int) -> Image.Image:
+    """Dark rounded-square tile with a subtle vertical gradient (RGBA)."""
+    big = size * SS
+    mask = Image.new("L", (big, big), 0)
+    radius = int(big * 0.225)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, big - 1, big - 1],
+                                           radius=radius, fill=255)
+    tile = Image.new("RGBA", (big, big))
+    px = tile.load()
+    for y in range(big):
+        t = y / (big - 1)
+        r = int(TILE_TOP[0] + (TILE_BOTTOM[0] - TILE_TOP[0]) * t)
+        g = int(TILE_TOP[1] + (TILE_BOTTOM[1] - TILE_TOP[1]) * t)
+        b = int(TILE_TOP[2] + (TILE_BOTTOM[2] - TILE_TOP[2]) * t)
+        for x in range(big):
+            px[x, y] = (r, g, b, 255)
+    tile.putalpha(mask)
+    return tile.resize((size, size), Image.LANCZOS)
 
 
-def rounded(img: Image.Image, radius_frac: float = 0.14) -> Image.Image:
-    """Apply a rounded-corner mask (returns RGBA)."""
-    s = img.size
-    r = int(min(s) * radius_frac)
-    mask = Image.new("L", s, 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, s[0] - 1, s[1] - 1], radius=r, fill=255)
-    out = img.convert("RGBA")
-    out.putalpha(mask)
+def _shield_points(cx: float, cy: float, w: float, h: float) -> list:
+    """Classic shield silhouette (flat top, tapered pointed bottom)."""
+    return [
+        (cx, cy - h / 2),                    # top centre
+        (cx + w * 0.44, cy - h * 0.36),      # top right shoulder
+        (cx + w * 0.50, cy - h * 0.02),      # right mid
+        (cx + w * 0.42, cy + h * 0.26),      # right lower
+        (cx, cy + h * 0.52),                 # bottom point
+        (cx - w * 0.42, cy + h * 0.26),      # left lower
+        (cx - w * 0.50, cy - h * 0.02),      # left mid
+        (cx - w * 0.44, cy - h * 0.36),      # top left shoulder
+    ]
+
+
+def _draw_shield(size: int) -> Image.Image:
+    """Emerald shield with vertical gradient + dark checkmark (RGBA)."""
+    big = size * SS
+    layer = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+
+    pts = _shield_points(big / 2, big / 2, big * 0.62, big * 0.66)
+
+    # vertical gradient inside the shield: draw per-scanline clipped polygon
+    grad = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(grad)
+    top_y, bot_y = min(p[1] for p in pts), max(p[1] for p in pts)
+    for y in range(int(top_y), int(bot_y) + 1):
+        t = (y - top_y) / max(1, bot_y - top_y)
+        r = int(SHIELD_LIGHT[0] + (SHIELD_DARK[0] - SHIELD_LIGHT[0]) * t)
+        g = int(SHIELD_LIGHT[1] + (SHIELD_DARK[1] - SHIELD_LIGHT[1]) * t)
+        b = int(SHIELD_LIGHT[2] + (SHIELD_DARK[2] - SHIELD_LIGHT[2]) * t)
+        gd.line([(0, y), (big, y)], fill=(r, g, b, 255))
+    mask = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(mask).polygon(pts, fill=255)
+    layer.paste(grad, (0, 0), mask)
+
+    # inner darker rim for depth
+    d.polygon(_shield_points(big / 2, big / 2, big * 0.545, big * 0.585),
+              outline=(24, 148, 84, 255), width=int(big * 0.012))
+
+    # checkmark: two thick strokes with rounded joints
+    lw = int(big * 0.055)
+    a = (big * 0.335, big * 0.505)
+    b = (big * 0.452, big * 0.625)
+    c = (big * 0.675, big * 0.36)
+    d.line([a, b], fill=CHECK + (255,), width=lw)
+    d.line([b, c], fill=CHECK + (255,), width=lw)
+    for p in (a, b, c):
+        r = lw / 2 - 0.5
+        d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=CHECK + (255,))
+
+    return layer.resize((size, size), Image.LANCZOS)
+
+
+def build_icon(size: int = 1024) -> Image.Image:
+    """Compose the final app icon (RGBA, anti-fringe safe)."""
+    icon = _rounded_tile(size)
+    icon.alpha_composite(_draw_shield(size))
+
+    # ANTI-FRINGE: give every transparent pixel a dark RGB so any downscale
+    # (Windows taskbar, ICO generation) blends towards dark, never white.
+    r, g, b, a = icon.split()
+    dark = Image.new("L", icon.size, 0)
+    rgb = Image.merge("RGB", (r.point(lambda v: v), g, b)).convert("RGB")
+    solid = Image.new("RGB", icon.size, EDGE_RGB)
+    rgb = Image.composite(rgb, solid, a.point(lambda v: 255 if v > 8 else 0))
+    out = Image.merge("RGBA", (*rgb.split(), a))
     return out
 
 
 def main() -> None:
-    master = Image.open(LOGO).convert("RGB")
-    x0, y0, x1, y1 = find_emblem(master)
-
-    # square crop around the emblem with a 16% margin
-    ew, eh = x1 - x0, y1 - y0
-    side = int(max(ew, eh) * 1.16)
-    cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
-    left, top = cx - side // 2, cy - side // 2
-    # clamp to canvas (shift if needed)
-    left = max(0, min(left, master.width - side))
-    top = max(0, min(top, master.height - side))
-    if side > master.width or side > master.height:
-        side = min(master.width, master.height)
-        left, top = (master.width - side) // 2, (master.height - side) // 2
-    tile = master.crop((left, top, left + side, top + side)).resize((1024, 1024), Image.LANCZOS)
-
-    icon = rounded(tile)
-    icon.save(ROOT / "assets" / "icon.png")
-    icon.save(ROOT / "assets" / "icon.ico",
+    icon = build_icon(1024)
+    icon.save(ASSETS / "icon.png")
+    icon.save(ASSETS / "icon.ico",
               sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64),
                      (128, 128), (256, 256)])
-    print(f"emblem {x0, y0, x1, y1} -> square crop {side}px -> icon.png + icon.ico done")
+
+    # sanity: corners transparent AND dark under RGB (no white fringes)
+    for corner in [(0, 0), (1023, 0), (0, 1023), (1023, 1023)]:
+        r, g, b, a = icon.getpixel(corner)
+        assert a == 0, corner
+        assert (r + g + b) / 3 < 80, f"light RGB under transparency at {corner}"
+    print("icon.png + icon.ico rebuilt (vector-style, anti-fringe)")
 
 
 if __name__ == "__main__":
