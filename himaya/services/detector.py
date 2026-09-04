@@ -273,7 +273,8 @@ class TFLiteClassifier:
     def __init__(self):
         self.interp = None
         self.input_details = self.output_details = None
-        from ..config import ASSETS_DIR as models_dir
+        from ..config import ASSETS_DIR
+        models_dir = ASSETS_DIR / "models"
         if models_dir.exists():
             for f in sorted(models_dir.glob("*.tflite")):
                 try:

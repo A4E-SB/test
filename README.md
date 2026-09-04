@@ -68,7 +68,7 @@ Résultat : `dist\Himaya\Himaya.exe` — dossier portable, copiable sur n'import
 quel PC Windows 10/11 (même 4 Go de RAM). Pour un fichier unique :
 
 ```bat
-pyinstaller --noconfirm --onefile --windowed --name Himaya --icon assets/icon.ico --add-data "assets;assets" main.py
+pyinstaller --noconfirm --onefile --windowed --name Himaya --icon assets/icon.ico --add-data "assets;assets" --add-data "himaya/database/schema.sql;himaya/database" main.py
 ```
 
 **Taille** : ~70-95 Mo avec OpenCV. Si besoin, remplacez

@@ -7,7 +7,8 @@ import os
 
 block_cipher = None
 datas = [
-    ("assets", "assets"),            # icon, fonts, optional tflite models
+    ("assets", "assets"),            # icon, logo, fonts, optional tflite models
+    ("himaya/database/schema.sql", "himaya/database"),  # read at runtime
 ]
 
 # exe version metadata (Properties > Details), if present

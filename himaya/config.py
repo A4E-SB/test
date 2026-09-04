@@ -41,7 +41,18 @@ DATA_DIR = get_data_dir()
 DB_PATH = DATA_DIR / "himaya.db"
 EVIDENCE_DIR = DATA_DIR / "evidence"        # copies of analysed screenshots
 BACKUP_DIR = DATA_DIR / "backups"
-ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+def bundle_dir() -> Path:
+    """
+    Root of bundled read-only resources.
+    Frozen (PyInstaller): sys._MEIPASS (one-folder build: .../_internal).
+    Dev checkout: the repository root.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    return Path(__file__).resolve().parent.parent
+
+
+ASSETS_DIR = bundle_dir() / "assets"
 
 EVIDENCE_DIR.mkdir(exist_ok=True)
 BACKUP_DIR.mkdir(exist_ok=True)

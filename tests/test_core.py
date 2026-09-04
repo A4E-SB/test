@@ -424,6 +424,21 @@ def test_bundled_tesseract(tmp: Path) -> None:
           or config.bundled_tesseract().endswith("tesseract.exe"))
 
 
+def test_schema_and_bundle_paths() -> None:
+    print("[paths] schema + bundle resources resolve")
+    from himaya.database.db import SCHEMA_PATH, _find_schema
+    check("schema.sql found next to package", SCHEMA_PATH.exists(), str(SCHEMA_PATH))
+    check("schema contains tables", "CREATE TABLE IF NOT EXISTS customers" in
+          SCHEMA_PATH.read_text(encoding="utf-8"))
+    check("find_schema deterministic", str(_find_schema()) == str(SCHEMA_PATH))
+    from himaya import config
+    check("assets dir exists (dev or bundle)", config.ASSETS_DIR.exists(),
+          str(config.ASSETS_DIR))
+    from himaya.services.detector import TFLiteClassifier
+    clf = TFLiteClassifier()
+    check("tflite slot optional, no crash", clf.available is False or clf.available is True)
+
+
 def test_wilaya_rtl() -> None:
     print("[wilayas]")
     from himaya.wilayas import wilaya_ar, WILAYA_NAMES_FR
@@ -451,6 +466,7 @@ def main() -> int:
     test_settings_templates(tmp)
     test_i18n()
     test_wilaya_rtl()
+    test_schema_and_bundle_paths()
     test_bundled_tesseract(tmp)
     print(f"\n{'=' * 50}\n{PASS} passed, {FAIL} failed")
     if FAILURES:

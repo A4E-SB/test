@@ -8,11 +8,33 @@ migration system based on PRAGMA user_version. All models receive this object.
 from __future__ import annotations
 
 import sqlite3
+import sys
 import threading
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
+
+def _find_schema() -> Path:
+    """
+    Locate schema.sql in dev AND frozen (PyInstaller) builds.
+
+    Frozen layout: <_MEIPASS>/himaya/database/schema.sql, where _MEIPASS is
+    the bundle root (one-folder: ...\_internal). The module dir usually
+    matches, but we fall back to explicit _MEIPASS locations for safety.
+    """
+    here = Path(__file__).resolve().parent / "schema.sql"
+    if here.exists():
+        return here
+    base = getattr(sys, "_MEIPASS", None)
+    if base:
+        for cand in (Path(base) / "himaya" / "database" / "schema.sql",
+                     Path(base) / "schema.sql"):
+            if cand.exists():
+                return cand
+    return here  # let the caller raise a clear FileNotFoundError
+
+
+SCHEMA_PATH = _find_schema()
 SCHEMA_VERSION = 1
 
 

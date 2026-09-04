@@ -60,6 +60,10 @@ def main() -> int:
 
     spec = (ROOT / "himaya.spec").read_text(encoding="utf-8")
     check("spec includes version info", "file_version_info.txt" in spec)
+    check("spec bundles schema.sql (freeze bug v1.0.0)",
+          "himaya/database/schema.sql" in spec)
+    dbmod = (ROOT / "himaya" / "database" / "db.py").read_text(encoding="utf-8")
+    check("db resolves schema for frozen builds", "_MEIPASS" in dbmod)
 
     bat = (ROOT / "build_installer.bat").read_text(encoding="utf-8", errors="replace")
     check("build script detects ISCC", "Inno Setup 6" in bat and "himaya.iss" in bat)
