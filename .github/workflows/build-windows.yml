@@ -40,6 +40,21 @@ jobs:
       - name: Build portable exe (PyInstaller)
         run: pyinstaller --noconfirm himaya.spec
 
+      - name: Verify bundled runtime files (freeze regression guard)
+        shell: pwsh
+        run: |
+          # files the app reads from disk at runtime MUST be in the bundle
+          $need = @(
+            "dist\Himaya\_internal\himaya\database\schema.sql",
+            "dist\Himaya\_internal\assets\icon.png"
+          )
+          $missing = $need | Where-Object { !(Test-Path $_) }
+          if ($missing) {
+            Write-Host "Missing bundled files:"; $missing | ForEach-Object { Write-Host "  - $_" }
+            exit 1
+          }
+          Write-Host "All runtime data files present in the bundle."
+
       - name: Stage Tesseract OCR bundle (offline, out of the box)
         shell: pwsh
         run: |
