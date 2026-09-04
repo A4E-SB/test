@@ -73,6 +73,12 @@ pyinstaller --noconfirm --onefile --windowed --name Himaya --icon assets/icon.ic
 `opencv-python-headless` par une build réduite et gardez les `excludes` de
 `himaya.spec` pour rester sous 100 Mo.
 
+## ⬇️ Télécharger l'installateur (déjà compilé)
+
+➡️ **[Himaya-Setup-1.0.0.exe — Release v1.0.0](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+Un seul fichier (≈82 Mo) : double-cliquez, Suivant → Suivant → Terminé.
+Application + Python + moteur OCR inclus, aucune connexion requise.
+
 ## 🧱 L'installateur tout-en-un (setup.exe)
 
 **Un seul fichier. Double-clic → Suivant → Suivant → Terminé → l'application s'ouvre.**
