@@ -24,7 +24,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
@@ -130,6 +132,90 @@ def build_icon(size: int = 1024) -> Image.Image:
     return out
 
 
+def clean_logo() -> None:
+    """
+    Strip the light canvas around the dark tile in assets/logo.png (master).
+
+    Only background pixels CONNECTED to the canvas border are removed, so the
+    white HIMAYA wordmark inside the tile is untouched. Edges are feathered
+    and every transparent pixel gets dark RGB underneath (anti-fringe — the
+    logo showed white edges on GitHub's white pages in v1.0.5).
+    """
+    from PIL import ImageFilter
+
+    img = Image.open(ASSETS / "logo.png").convert("RGB")
+    a = np.array(img).astype(int)
+    lum = (a[..., 0] * 299 + a[..., 1] * 587 + a[..., 2] * 114) // 1000
+    light = lum > 140
+
+    conn = np.zeros_like(light)
+    conn[0, :] = light[0, :]
+    conn[-1, :] = light[-1, :]
+    conn[:, 0] |= light[:, 0]
+    conn[:, -1] |= light[:, -1]
+    for _ in range(2000):
+        grown = conn.copy()
+        grown[1:, :] |= conn[:-1, :]
+        grown[:-1, :] |= conn[1:, :]
+        grown[:, 1:] |= conn[:, :-1]
+        grown[:, :-1] |= conn[:, 1:]
+        grown &= light
+        if (grown == conn).all():
+            break
+        conn = grown
+
+    alpha = np.where(conn, 0, 255).astype(np.uint8)
+    alpha = np.array(Image.fromarray(alpha, "L").filter(ImageFilter.GaussianBlur(1.2)))
+    alpha = np.where(conn & (alpha < 200), 0, alpha)
+
+    rgb = a.copy()
+    trans = alpha < 220
+    for c, v in enumerate((18, 20, 26)):
+        rgb[..., c] = np.where(trans, v, rgb[..., c])
+    Image.fromarray(np.dstack([rgb, alpha]).astype(np.uint8), "RGBA").save(
+        ASSETS / "logo.png")
+    print(f"logo.png cleaned: {int(conn.sum())} background pixels -> transparent")
+
+
+def social_preview() -> None:
+    """1280x640 social preview card (GitHub Settings -> Social preview)."""
+
+    W, H = 1280, 640
+    card = Image.new("RGB", (W, H), (20, 22, 27))
+    d = ImageDraw.Draw(card)
+    # subtle gradient
+    for y in range(H):
+        t = y / H
+        d.line([(0, y), (W, y)],
+               fill=(int(20 - 6 * t), int(22 - 3 * t), int(27 + 5 * t)))
+    # big icon on the left
+    icon = build_icon(420)
+    card.paste(icon, (90, (H - 420) // 2), icon)
+    # text block
+    try:
+        f_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 92)
+        f_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 40)
+        f_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
+    except OSError:
+        f_big = f_sub = f_small = ImageFont.load_default()
+    x = 570
+    d.text((x, 175), "Himaya", font=f_big, fill=(52, 224, 133))
+    try:  # shape Arabic correctly (letters must join + read RTL)
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+        ar_txt = get_display(arabic_reshaper.reshape("حماية"))
+    except Exception:
+        ar_txt = ""
+    if ar_txt:
+        d.text((x + 330, 205), ar_txt, font=f_sub, fill=(240, 242, 246))
+    d.text((x, 300), "100% offline protection for", font=f_sub, fill=(240, 242, 246))
+    d.text((x, 352), "Algerian e-commerce sellers", font=f_sub, fill=(240, 242, 246))
+    d.text((x, 440), "EN · FR · AR   •   fake receipt detector • trust scores",
+           font=f_small, fill=(154, 163, 178))
+    card.save(ASSETS / "social-preview.png")
+    print("social-preview.png (1280x640) built")
+
+
 def main() -> None:
     icon = build_icon(1024)
     icon.save(ASSETS / "icon.png")
@@ -143,6 +229,11 @@ def main() -> None:
         assert a == 0, corner
         assert (r + g + b) / 3 < 80, f"light RGB under transparency at {corner}"
     print("icon.png + icon.ico rebuilt (vector-style, anti-fringe)")
+
+    import os
+    if os.environ.get("HIMAYA_SKIP_LOGO_CLEAN") != "1":
+        clean_logo()
+        social_preview()
 
 
 if __name__ == "__main__":
