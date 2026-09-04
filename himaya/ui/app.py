@@ -11,7 +11,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..database.db import Database
-from ..i18n import t
+from ..i18n import LANG_NAMES, next_lang, t
 from ..models import settings_store
 from . import widgets as W
 from .widgets import F
@@ -104,7 +104,8 @@ class HimayaApp(ctk.CTk):
             pass
         ctk.CTkLabel(brand, text="Himaya", font=F(24, "bold"),
                      text_color=config.COLOR_ACCENT).pack(side="left")
-        ctk.CTkLabel(self.sidebar, text="حماية — 100% hors ligne",
+        ctk.CTkLabel(self.sidebar,
+                     text=f"حماية — {t('offline_badge', self.lang)}",
                      font=F(11), text_color=config.COLOR_FG_DIM
                      ).grid(row=1, column=0, padx=22, pady=(0, 18), sticky="w")
 
@@ -118,10 +119,11 @@ class HimayaApp(ctk.CTk):
             btn.grid(row=i, column=0, sticky="ew", padx=12, pady=2)
             self._nav_buttons[key] = btn
 
-        # language quick toggle at the bottom
+        # language quick switch at the bottom: FR -> EN -> AR cycle,
+        # the button always shows the NEXT language name
         lang_btn = ctk.CTkButton(
             self.sidebar,
-            text=("العربية" if self.lang == "fr" else "Français"),
+            text="🌐 " + LANG_NAMES[next_lang(self.lang)],
             font=F(13), height=36, fg_color=config.COLOR_BG_3,
             hover_color=config.COLOR_BG, text_color=config.COLOR_FG,
             command=self.toggle_language)
@@ -179,7 +181,7 @@ class HimayaApp(ctk.CTk):
         self.show_page(self.page_name or "dashboard")
 
     def toggle_language(self) -> None:
-        self.set_language("ar" if self.lang == "fr" else "fr")
+        self.set_language(next_lang(self.lang))
 
     # ------------------------------------------------------------------ helpers
 

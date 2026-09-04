@@ -178,6 +178,12 @@ def main() -> int:
     for name, _label, _icon in PAGES:
         app.show_page(name)
         print(f"  ✓ page (ar): {name}")
+    # English pass (v1.0.3: full EN UI)
+    app.set_language("en")
+    print("  ✓ switched to English")
+    for name, _label, _icon in PAGES:
+        app.show_page(name)
+    print("  ✓ all pages (en)")
     app.set_language("fr")
 
     # ---- dialog constructors (no save() calls) -----------------------------

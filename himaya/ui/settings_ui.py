@@ -12,6 +12,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..models import settings_store
+from ..i18n import LANG_NAMES
 from ..services import backup
 from .widgets import F
 
@@ -33,8 +34,8 @@ class SettingsPage(ctk.CTkScrollableFrame):
                      anchor="w").pack(fill="x", padx=14, pady=(10, 2))
         row = ctk.CTkFrame(lang_card, fg_color="transparent")
         row.pack(fill="x", padx=14, pady=(0, 10))
-        self.lang_var = tk.StringVar(value=("Français" if app.lang == "fr" else "العربية"))
-        ctk.CTkSegmentedButton(row, values=["Français", "العربية"],
+        self.lang_var = tk.StringVar(value=LANG_NAMES.get(app.lang, "Français"))
+        ctk.CTkSegmentedButton(row, values=[LANG_NAMES[l] for l in ("fr", "en", "ar")],
                                variable=self.lang_var,
                                command=self.change_language).pack(side="left")
 
@@ -119,7 +120,8 @@ class SettingsPage(ctk.CTkScrollableFrame):
     # ------------------------------------------------------------------ actions
 
     def change_language(self, value: str) -> None:
-        lang = "ar" if value == "العربية" else "fr"
+        # reverse-lookup the language code from its display name
+        lang = next((code for code, name in LANG_NAMES.items() if name == value), "fr")
         settings_store.set_setting(self.app.db, "language", lang)
         self.app.set_language(lang)
 

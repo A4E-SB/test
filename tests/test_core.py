@@ -398,10 +398,15 @@ def test_i18n() -> None:
     print("[i18n]")
     missing = []
     for key, entry in i18n._TR.items():
-        for lang in ("fr", "ar"):
+        for lang in ("fr", "en", "ar"):
             if not entry.get(lang):
                 missing.append(f"{key}:{lang}")
-    check("all keys translated fr+ar", not missing, str(missing[:5]))
+    check("all keys translated fr+en+ar", not missing, str(missing[:5]))
+    check("english dashboard label", i18n.t("nav_dashboard", "en") == "Dashboard")
+    check("language cycle fr->en->ar->fr",
+          i18n.next_lang("fr") == "en" and i18n.next_lang("en") == "ar"
+          and i18n.next_lang("ar") == "fr")
+    check("english months", i18n.month_name(1, "en") == "January")
     check("t fallback", i18n.t("nonexistent_key") == "nonexistent_key")
     check("t formatting", i18n.t("ord_new_orders_count", "fr", n=3) == "3 commande(s)")
     check("58 wilayas", len(__import__("himaya.wilayas", fromlist=["WILAYAS"]).WILAYAS) == 58)

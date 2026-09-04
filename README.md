@@ -23,15 +23,15 @@
 | 💰 **Financial reports** | Revenue, costs, net profit, loss breakdown (ghosts / refusals / fake payments), money saved by blocking. CSV / Excel export |
 | 🔌 **USB import / export** | The **`.hma` file**: Himaya's official blacklist to share between sellers on a USB key. Orders CSV/Excel import & export |
 | 🖨️ **Delivery labels** | A6 (105×148) or 100×100 PDF with color-coded risk level, barcode, warnings ("Call before delivery") |
-| ⚙️ **Settings** | FR/AR UI language, CCP/BaridiMob account info (for deposits), default delivery company, backup/restore, all 58 wilayas built in |
+| ⚙️ **Settings** | FR/EN/AR UI language, CCP/BaridiMob account info (for deposits), default delivery company, backup/restore, all 58 wilayas built in |
 
-The UI itself is fully bilingual **French ⇄ Arabic (RTL)** with one click.
+The UI itself is fully trilingual **English ⇄ Français ⇄ العربية (RTL)** with one click.
 
 ---
 
 ## ⬇️ Download the installer (already compiled for you)
 
-➡️ **[Himaya-Setup-1.0.2.exe — latest release](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+➡️ **[Himaya-Setup-1.0.3.exe — latest release](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
 One file (~83 MB): double-click → Next → Next → Finish. App + Python runtime +
 OCR engine included, no internet connection required.
 
@@ -45,7 +45,7 @@ works on any Windows 10/11 PC (4 GB RAM is enough).
 The installer adds: desktop + Start Menu shortcuts, a **French** wizard, a
 clean uninstaller that **asks** before touching your data (`%APPDATA%\Himaya`).
 Silent/bulk install:
-`Himaya-Setup-1.0.2.exe /VERYSILENT /SUPPRESSMSGBOXES`
+`Himaya-Setup-1.0.3.exe /VERYSILENT /SUPPRESSMSGBOXES`
 
 ### Option A — on your Windows PC
 
@@ -58,13 +58,13 @@ build_installer.bat
 
 The script does everything: venv → dependencies → PyInstaller → OCR engine
 staging (copied from your PC or downloaded once at build time — never on the
-end user's machine) → `installer\output\Himaya-Setup-1.0.2.exe`.
+end user's machine) → `installer\output\Himaya-Setup-1.0.3.exe`.
 
 ### Option B — built automatically on GitHub (no PC required)
 
 - **Actions** tab → *Build Windows installer* → **Run workflow** → download
   the `setup.exe` from the *artifacts*;
-- or push a tag (`git tag v1.0.2 && git push origin v1.0.2`): a **Release**
+- or push a tag (`git tag v1.0.3 && git push origin v1.0.3`): a **Release**
   is created automatically with the installer attached.
 
 ---
