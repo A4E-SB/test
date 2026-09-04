@@ -16,18 +16,23 @@ from ..models import settings_store
 from . import widgets as W
 from .widgets import F
 
-# Optional native drag & drop (falls back to click-to-browse silently)
-try:  # pragma: no cover
-    from tkinterdnd2 import TkinterDnD
-    HAS_DND = True
+def _enable_dnd(root) -> bool:
+    """
+    Enable native drag & drop on an existing CTk root — OPTIONAL feature.
 
-    class _Root(ctk.CTk, TkinterDnD.DnD):
-        def __init__(self, *a, **kw):
-            ctk.CTk.__init__(self, *a, **kw)
-            self.TkdndVersion = TkinterDnD._TkinterDnDLoader(self)
-except ImportError:  # pragma: no cover
-    HAS_DND = False
-    _Root = ctk.CTk
+    Uses tkinterdnd2's official require() helper for external frameworks
+    (the library monkey-patches drop_target_register onto all widgets when
+    its module loads). ANY failure — package missing, version drift, tkdnd
+    binaries absent — simply disables drag & drop; the app must NEVER crash
+    because of it (v1.0.1 froze at startup because of an API-name change
+    in tkinterdnd2 0.4: the mixin is DnDWrapper, no longer DnD).
+    """
+    try:
+        from tkinterdnd2 import TkinterDnD
+        TkinterDnD.require(root)
+        return True
+    except Exception:
+        return False
 
 
 PAGES = [
@@ -43,11 +48,12 @@ PAGES = [
 ]
 
 
-class HimayaApp(_Root):
+class HimayaApp(ctk.CTk):
     def __init__(self, db: Database):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         super().__init__(fg_color=config.COLOR_BG)
+        self.dnd_enabled = _enable_dnd(self)   # optional drag & drop
         self.db = db
         self.lang = settings_store.get_setting(db, "language", "fr")
         self.page_name: str | None = None

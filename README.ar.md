@@ -40,7 +40,7 @@
 
 <div dir="rtl">
 
-➡️ **[Himaya-Setup-1.0.1.exe — أحدث إصدار](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+➡️ **[Himaya-Setup-1.0.2.exe — أحدث إصدار](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
 ملف واحد (حوالي 83 ميغا): نقرة مزدوجة ← التالي ← التالي ← إنهاء.
 التطبيق + محرك Python + محرك OCR مدمجون، لا يحتاج أي اتصال بالإنترنت.
 
@@ -64,7 +64,7 @@
 </div>
 
 ```
-Himaya-Setup-1.0.1.exe /VERYSILENT /SUPPRESSMSGBOXES
+Himaya-Setup-1.0.2.exe /VERYSILENT /SUPPRESSMSGBOXES
 ```
 
 <div dir="rtl">
@@ -83,7 +83,7 @@ build_installer.bat
 <div dir="rtl">
 
 السكريبت يقوم بكل شيء: بيئة افتراضية ← التبعيات ← PyInstaller ← تجهيز
-محرك OCR ← `installer\output\Himaya-Setup-1.0.1.exe`.
+محرك OCR ← `installer\output\Himaya-Setup-1.0.2.exe`.
 
 ### الطريقة ب — يُبنى تلقائياً على GitHub (بدون حاسوب)
 

@@ -11,6 +11,14 @@ datas = [
     ("himaya/database/schema.sql", "himaya/database"),  # read at runtime
 ]
 
+# tkinterdnd2 ships native tkdnd binaries per platform — bundle them so
+# drag & drop works in frozen builds (harmless if the hook already did it).
+try:
+    from PyInstaller.utils.hooks import collect_data_files
+    datas += collect_data_files("tkinterdnd2")
+except Exception:
+    pass
+
 # exe version metadata (Properties > Details), if present
 _version_file = os.path.join("installer", "file_version_info.txt")
 if not os.path.exists(_version_file):

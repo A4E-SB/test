@@ -45,7 +45,7 @@ def main() -> int:
     check("installer packages dist folder",
           "dist\\Himaya\\*" in iss)
     check("installer output name has version",
-          f"Himaya-Setup-{{#MyAppVersion}}" in iss)
+          "Himaya-Setup-{#MyAppVersion}" in iss)
     check("installer asks before deleting user data",
           "DataDirQuestion" in iss and "userappdata" in iss)
     check("installer ships French wizard language",
@@ -64,6 +64,11 @@ def main() -> int:
           "himaya/database/schema.sql" in spec)
     dbmod = (ROOT / "himaya" / "database" / "db.py").read_text(encoding="utf-8")
     check("db resolves schema for frozen builds", "_MEIPASS" in dbmod)
+    appsrc = (ROOT / "himaya" / "ui" / "app.py").read_text(encoding="utf-8")
+    check("drag&drop is optional & never crashes startup (v1.0.1 bug)",
+          "def _enable_dnd" in appsrc and "TkinterDnD.require" in appsrc
+          and "except Exception" in appsrc)
+    check("spec bundles tkdnd binaries", 'collect_data_files("tkinterdnd2")' in spec)
 
     bat = (ROOT / "build_installer.bat").read_text(encoding="utf-8", errors="replace")
     check("build script detects ISCC", "Inno Setup 6" in bat and "himaya.iss" in bat)

@@ -17,11 +17,10 @@ from ..models import settings_store
 from ..services import detector
 from .widgets import F
 
-try:  # optional native drag & drop
+try:  # optional native drag & drop (strictly optional, never crash)
     from tkinterdnd2 import DND_FILES
-    HAS_DND = True
-except ImportError:
-    HAS_DND = False
+except Exception:
+    DND_FILES = None
 
 
 class DetectorPage(ctk.CTkFrame):
@@ -46,7 +45,7 @@ class DetectorPage(ctk.CTkFrame):
             border_width=2, border_color=config.COLOR_ACCENT, corner_radius=14,
             text_color=config.COLOR_FG, command=self.browse)
         self.drop.grid(row=2, column=0, sticky="ew", padx=16, pady=10)
-        if HAS_DND:
+        if DND_FILES is not None and getattr(app, "dnd_enabled", False):
             try:
                 self.drop.drop_target_register(DND_FILES)
                 self.drop.dnd_bind("<<Drop>>", self.on_drop)

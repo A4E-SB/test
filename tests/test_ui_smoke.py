@@ -98,6 +98,18 @@ def install_stubs() -> None:
     sys.modules["tkinter"] = tk
     sys.modules["customtkinter"] = make_mod("customtkinter")
 
+    # tkinterdnd2 stub mimicking the REAL v0.4 layout: a MODULE named
+    # TkinterDnD (no DnD mixin class! that's what crashed v1.0.1) exposing
+    # the official require() helper for external frameworks + constants.
+    tkdnd = types.ModuleType("tkinterdnd2")
+    tkdnd_mod = types.ModuleType("tkinterdnd2.TkinterDnD")
+    tkdnd_mod.require = lambda root: "2.9.3-stub"
+    tkdnd_mod.DnDWrapper = type("DnDWrapper", (), {})  # exists, unused by us
+    tkdnd.TkinterDnD = tkdnd_mod
+    tkdnd.DND_FILES = "DND_Files"
+    sys.modules["tkinterdnd2"] = tkdnd
+    sys.modules["tkinterdnd2.TkinterDnD"] = tkdnd_mod
+
 
 def main() -> int:
     install_stubs()
@@ -154,6 +166,7 @@ def main() -> int:
     from himaya.ui.app import HimayaApp, PAGES
     app = HimayaApp(db)
     print("  ✓ HimayaApp constructed")
+    assert app.dnd_enabled is True, "dnd stub require() should have succeeded"
 
     for name, _label, _icon in PAGES:
         app.show_page(name)
@@ -242,6 +255,18 @@ def main() -> int:
     r = phone_risk(db, "0770999888")
     assert r["level"] == "danger" and r["blacklisted"]
     print("  ✓ phone_risk (blacklisted)")
+
+    # ---- drag&drop must NEVER crash startup, whatever the library state ----
+    from himaya.ui.app import _enable_dnd
+    broken = types.ModuleType("tkinterdnd2")           # no TkinterDnD at all
+    saved_pkg = sys.modules.pop("tkinterdnd2")
+    saved_mod = sys.modules.pop("tkinterdnd2.TkinterDnD")
+    sys.modules["tkinterdnd2"] = broken
+    ok = _enable_dnd(app)
+    sys.modules["tkinterdnd2"] = saved_pkg
+    sys.modules["tkinterdnd2.TkinterDnD"] = saved_mod
+    assert ok is False, "broken tkinterdnd2 must degrade to dnd-disabled"
+    print("  ✓ broken tkinterdnd2 degrades gracefully (v1.0.1 regression)")
 
     print("\nUI SMOKE TEST: all pages OK")
     return 0

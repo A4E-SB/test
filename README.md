@@ -31,7 +31,7 @@ The UI itself is fully bilingual **French ⇄ Arabic (RTL)** with one click.
 
 ## ⬇️ Download the installer (already compiled for you)
 
-➡️ **[Himaya-Setup-1.0.1.exe — latest release](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+➡️ **[Himaya-Setup-1.0.2.exe — latest release](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
 One file (~83 MB): double-click → Next → Next → Finish. App + Python runtime +
 OCR engine included, no internet connection required.
 
@@ -45,7 +45,7 @@ works on any Windows 10/11 PC (4 GB RAM is enough).
 The installer adds: desktop + Start Menu shortcuts, a **French** wizard, a
 clean uninstaller that **asks** before touching your data (`%APPDATA%\Himaya`).
 Silent/bulk install:
-`Himaya-Setup-1.0.1.exe /VERYSILENT /SUPPRESSMSGBOXES`
+`Himaya-Setup-1.0.2.exe /VERYSILENT /SUPPRESSMSGBOXES`
 
 ### Option A — on your Windows PC
 
@@ -58,7 +58,7 @@ build_installer.bat
 
 The script does everything: venv → dependencies → PyInstaller → OCR engine
 staging (copied from your PC or downloaded once at build time — never on the
-end user's machine) → `installer\output\Himaya-Setup-1.0.1.exe`.
+end user's machine) → `installer\output\Himaya-Setup-1.0.2.exe`.
 
 ### Option B — built automatically on GitHub (no PC required)
 
