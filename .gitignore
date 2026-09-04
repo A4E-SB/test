@@ -20,3 +20,6 @@ evidence/
 # OS
 Thumbs.db
 .DS_Store
+
+# Installer build output
+installer/output/

@@ -10,6 +10,11 @@ datas = [
     ("assets", "assets"),            # icon, fonts, optional tflite models
 ]
 
+# exe version metadata (Properties > Details), if present
+_version_file = os.path.join("installer", "file_version_info.txt")
+if not os.path.exists(_version_file):
+    _version_file = None
+
 a = Analysis(
     ["main.py"],
     pathex=[],
@@ -44,6 +49,7 @@ exe = EXE(
     upx=True,
     console=False,                    # windowed app: no terminal on launch
     disable_windowed_traceback=False,
+    version=_version_file,
     icon=os.path.join("assets", "icon.ico") if os.path.exists(os.path.join("assets", "icon.ico")) else None,
 )
 coll = COLLECT(

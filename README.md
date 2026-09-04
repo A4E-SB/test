@@ -73,6 +73,61 @@ pyinstaller --noconfirm --onefile --windowed --name Himaya --icon assets/icon.ic
 `opencv-python-headless` par une build réduite et gardez les `excludes` de
 `himaya.spec` pour rester sous 100 Mo.
 
+## 🧱 Créer l'installateur (setup.exe)
+
+Deux méthodes — dans les deux cas le résultat est un **installateur Windows
+classique** : `installer\output\Himaya-Setup-1.0.0.exe`.
+
+### Méthode A — sur votre PC Windows (recommandé)
+
+1. Installez **Inno Setup 6** (gratuit) : https://jrsoftware.org/isdl.php
+2. Double-cliquez sur :
+
+```bat
+build_installer.bat
+```
+
+Le script fait tout : environnement virtuel → dépendances → PyInstaller →
+`setup.exe`. Si Inno Setup n'est pas détecté, passez son chemin en argument :
+
+```bat
+build_installer.bat "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+```
+
+L'installateur offre : assistant en **français** (+ anglais), licence MIT,
+icône bureau/menu Démarrer (optionnelles), désinstalleur propre, et à la
+désinstallation il **demande** avant de toucher à vos données
+(`%APPDATA%\Himaya`) — aucune perte accidentelle de base clients.
+
+Installation silencieuse (déploiement en masse / magasin) :
+
+```bat
+Himaya-Setup-1.0.0.exe /VERYSILENT /SUPPRESSMSGBOXES
+```
+
+### Méthode B — compilation automatique sur GitHub (aucun PC requis)
+
+Le dépôt contient un workflow `.github/workflows/build-windows.yml` :
+
+- Onglet **Actions** → *Build Windows installer* → **Run workflow** :
+  le `setup.exe` apparaît en *artifact* téléchargeable ;
+- ou poussez un tag : `git tag v1.0.0 && git push origin v1.0.0` —
+  une **Release** est créée automatiquement avec l'installateur attaché.
+
+### Contenu de `installer/`
+
+| Fichier | Rôle |
+|---|---|
+| `himaya.iss` | Script Inno Setup (version, raccourcis, désinstalleur, prompt données) |
+| `file_version_info.txt` | Métadonnées de version de `Himaya.exe` (Propriétés → Détails) |
+
+> ⚠️ Ne changez jamais le `AppId` du script après la première distribution
+> (c'est lui qui lie les mises à jour/désinstallations). Pour publier une
+> nouvelle version : incrémentez `__version__` dans `himaya/__init__.py`,
+> mettez à jour `MyAppVersion` et `filevers` — `tests/test_packaging.py`
+> vérifie que tout reste synchronisé.
+
+
 ---
 
 ## 🗄️ Où sont mes données ?
@@ -135,8 +190,9 @@ Fiable ≥ 80 (avec 3+ livraisons) · ⚠️ prudence 40-79 · 🚨 dangereux < 
 ## ✅ Tests
 
 ```bash
-python tests/test_core.py      # 79 tests : DB, trust, détection, .hma, PDF, rapports
-python tests/test_ui_smoke.py  # interface complète (sans écran, via stubs)
+python tests/test_core.py       # 79 tests : DB, trust, détection, .hma, PDF, rapports
+python tests/test_ui_smoke.py   # interface complète (sans écran, via stubs)
+python tests/test_packaging.py  # cohérence versions exe / installateur / spec
 ```
 
 ## 📁 Structure du projet
@@ -146,7 +202,10 @@ himaya/
 ├── main.py                  # point d'entrée (--db, --init-only)
 ├── requirements.txt
 ├── himaya.spec              # config PyInstaller
-├── build_windows.bat        # build en 1 clic
+├── build_windows.bat        # build portable en 1 clic
+├── build_installer.bat      # setup.exe complet en 1 clic (PyInstaller + Inno Setup)
+├── installer/               # himaya.iss (Inno Setup) + version info de l'exe
+├── .github/workflows/       # build automatique du setup.exe sur GitHub
 ├── assets/                  # icône, polices, modèles TFLite optionnels
 ├── tools/make_icon.py       # régénère l'icône
 ├── tests/                   # tests headless (core + UI)
