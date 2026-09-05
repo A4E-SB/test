@@ -120,6 +120,7 @@ _TR = {
     "ord_date_today": {"fr": "Aujourd'hui", "en": "Today", "ar": "اليوم"},
     "ord_date_hint": {"fr": "JJ/MM/AAAA ou AAAA-MM-JJ — vide = aujourd'hui", "en": "DD/MM/YYYY or YYYY-MM-DD — empty = today", "ar": "يوم/شهر/سنة أو سنة-شهر-يوم — فارغ = اليوم"},
     "ord_bad_date": {"fr": "Date invalide (JJ/MM/AAAA)", "en": "Invalid date (DD/MM/YYYY)", "ar": "تاريخ غير صالح (يوم/شهر/سنة)"},
+    "err_unexpected": {"fr": "Une erreur inattendue vient de se produire. Rien n'est perdu — un rapport a été écrit dans le journal :", "en": "An unexpected error just occurred. Nothing is lost — a report was written to the log:", "ar": "حدث خطأ غير متوقع. لم يُفقد شيء — تم كتابة تقرير في السجل:"},
     "ord_delivery_sec": {"fr": "Livraison", "en": "Delivery", "ar": "التوصيل"},
     "ord_add_company": {"fr": "Autre (ajouter)…", "en": "Other (add)…", "ar": "أخرى (إضافة)…"},
     "ord_company_prompt": {"fr": "Nom de la société de livraison", "en": "Delivery company name", "ar": "اسم شركة التوصيل"},

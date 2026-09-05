@@ -6,12 +6,14 @@ a canvas bar-chart and the scam-alert popup.
 from __future__ import annotations
 
 import sys
+import functools
 import tkinter as tk
 from tkinter import ttk
 
 import customtkinter as ctk
 
 from .. import config
+from ..services.diagnostics import log_crash
 from ..i18n import t
 
 # ---------------------------------------------------------------------------
@@ -471,6 +473,30 @@ class FunnelChart(ctk.CTkCanvas):
 class HimayaDialog(ctk.CTkToplevel):
     """Modal popup base: deferred safe grab + explicit safe close."""
 
+    def __init_subclass__(cls, **kwargs):
+        # Wrap EVERY dialog's __init__ with a crash guard: a constructor
+        # exception is logged, the half-built window is closed (never a
+        # zombie), and the error re-raises for the app-level handler.
+        super().__init_subclass__(**kwargs)
+        original = cls.__init__
+        if getattr(original, "_himaya_crash_guard", False):
+            return
+
+        @functools.wraps(original)
+        def guarded(self, *args, **kw):
+            try:
+                original(self, *args, **kw)
+            except Exception:
+                log_crash(f"{cls.__name__}.__init__")
+                try:
+                    self.close()
+                except Exception:
+                    pass
+                raise
+
+        guarded._himaya_crash_guard = True
+        cls.__init__ = guarded
+
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self._closed = False
@@ -485,17 +511,35 @@ class HimayaDialog(ctk.CTkToplevel):
             pass   # grab is a convenience, never a crash
 
     def close(self) -> None:
-        """The ONE exit path: release the modal grab, then destroy."""
-        if self._closed:
+        """The ONE exit path: release grab, destroy, NEVER leave a zombie.
+
+        A destroy() can fail when a child widget was only half-built by a
+        crashed constructor — so we escalate: CTk destroy -> raw Tk
+        destroy -> withdraw (at least take it off screen)."""
+        try:
+            alive = bool(self.winfo_exists())
+        except Exception:
+            alive = False                    # widget already gone
+        if not alive:
+            self._closed = True
             return
+        try:
+            self.grab_release()
+        except Exception:
+            pass
         self._closed = True
         try:
-            if self.winfo_exists():
-                self.grab_release()
+            self.destroy()
+            return
         except Exception:
             pass
         try:
-            self.destroy()
+            tk.Toplevel.destroy(self)        # skip the CTk destroy chain
+            return
+        except Exception:
+            pass
+        try:
+            self.withdraw()                  # last resort: hide it
         except Exception:
             pass
 

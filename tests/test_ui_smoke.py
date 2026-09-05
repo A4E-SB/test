@@ -393,18 +393,69 @@ def main() -> int:
     # behavioral: close() must release the modal grab BEFORE destroying,
     # and must be idempotent (X + Cancel + double-click safe)
     order = []
-    dlg.winfo_exists = lambda: True   # stub default is falsy; real tk: True
+    alive = [True]
+    dlg.winfo_exists = lambda: alive[0]   # stub default is falsy; real tk: True
     dlg.grab_release = lambda: order.append("release")
-    dlg.destroy = lambda: order.append("destroy")
+    dlg.destroy = lambda: (order.append("destroy"), alive.__setitem__(0, False))
     dlg._closed = False
     dlg.close()
-    dlg.close()
+    dlg.close()   # window is gone now -> must be a no-op
     assert order == ["release", "destroy"], f"close() sequence wrong: {order}"
     print("  ✓ close(): grab released before destroy, idempotent")
 
     dlg2 = OrderDialog(app, app)
     print("  ✓ OrderDialog")
     dlg2.close()
+
+    # ---- v1.4.1: CTk constructor kwargs lint (the 'empty order window'
+    # bug was CTkComboBox(textvariable=...) — not a CTk argument, CTk raises
+    # ValueError mid-build; stubs could never see it) -------------------------
+    lint_ctk_kwargs()
+
+    # ---- v1.4.1: dialog crash guard — a raising __init__ must log + close --
+    from himaya.ui.widgets import HimayaDialog as _HD
+
+    class _BoomDialog(_HD):
+        def __init__(self, master, app):
+            super().__init__(master)
+            self._closed = False
+            raise RuntimeError("boom-constructor")
+
+    crashed = False
+    try:
+        _BoomDialog(app, app)
+    except RuntimeError:
+        crashed = True
+    assert crashed, "guard must re-raise the original error"
+    log_path = config.DATA_DIR / "error.log"
+    assert log_path.exists() and "boom-constructor" in log_path.read_text(
+        encoding="utf-8"), "crash must be written to error.log"
+    print("  ✓ dialog crash guard: logged + window closed + re-raised")
+
+    # ---- v1.4.1: close() never leaves a zombie ------------------------------
+    z = OrderDialog(app, app)
+    calls = []
+    z.winfo_exists = lambda: True
+    z.grab_release = lambda: calls.append("release")
+    z.destroy = lambda: (_ for _ in ()).throw(RuntimeError("broken child"))
+
+    class _RawToplevelMod:                    # widgets.close() fallback path
+        class Toplevel:
+            @staticmethod
+            def destroy(w): raise RuntimeError("raw broken")
+    from himaya.ui import widgets as _W
+    _real_tk = _W.tk
+    _W.tk = _RawToplevelMod()
+    try:
+        z.withdraw = lambda: calls.append("withdraw")
+        z.close()
+        z.close()   # second click must be a safe no-op
+    finally:
+        _W.tk = _real_tk
+    # every click runs one full safe escalation pass (a withdrawn window
+    # still exists, so a retry must be possible — no permanent latch)
+    assert calls == ["release", "withdraw", "release", "withdraw"], calls
+    print("  ✓ close() escalates destroy -> withdraw, never zombies")
 
     # ---- v1.4 order-form behavior: price from stock, custom company, date --
     import inspect as _inspect
@@ -611,6 +662,159 @@ def main() -> int:
 
     print("\nUI SMOKE TEST: all pages OK")
     return 0
+
+
+
+
+def lint_ctk_kwargs() -> None:
+    """Every ctk.<Widget>(...) call may only use REAL CTk 5.2.2 arguments.
+    Signature table extracted from the customtkinter 5.2.2 source."""
+    import ast
+    SIGS = {
+        "CTk": {"fg_color"},
+        "CTkBaseClass": {"bg_color", "height", "master", "width"},
+        "CTkButton": {"anchor", "background_corner_colors", "bg_color",
+            "border_color", "border_spacing", "border_width", "command",
+            "compound", "corner_radius", "fg_color", "font", "height", "hover",
+            "hover_color", "image", "master",
+            "round_height_to_even_numbers", "round_width_to_even_numbers",
+            "state", "text", "text_color", "text_color_disabled",
+            "textvariable", "width"},
+        "CTkCheckBox": {"bg_color", "border_color", "border_width",
+            "checkbox_height", "checkbox_width", "checkmark_color", "command",
+            "corner_radius", "fg_color", "font", "height", "hover",
+            "hover_color", "master", "offvalue", "onvalue", "state", "text",
+            "text_color", "text_color_disabled", "textvariable", "variable",
+            "width"},
+        "CTkComboBox": {"bg_color", "border_color", "border_width",
+            "button_color", "button_hover_color", "command", "corner_radius",
+            "dropdown_fg_color", "dropdown_font", "dropdown_hover_color",
+            "dropdown_text_color", "fg_color", "font", "height", "hover",
+            "justify", "master", "state", "text_color", "text_color_disabled",
+            "values", "variable", "width"},
+        "CTkEntry": {"bg_color", "border_color", "border_width",
+            "corner_radius", "fg_color", "font", "height", "master",
+            "placeholder_text", "placeholder_text_color", "state",
+            "text_color", "textvariable", "width"},
+        "CTkFont": {"family", "overstrike", "size", "slant", "underline",
+            "weight"},
+        "CTkFrame": {"background_corner_colors", "bg_color", "border_color",
+            "border_width", "corner_radius", "fg_color", "height", "master",
+            "overwrite_preferred_drawing_method", "width"},
+        "CTkImage": {"dark_image", "light_image", "size"},
+        "CTkLabel": {"anchor", "bg_color", "compound", "corner_radius",
+            "fg_color", "font", "height", "image", "master", "text",
+            "text_color", "text_color_disabled", "width", "wraplength"},
+        "CTkOptionMenu": {"anchor", "bg_color", "button_color",
+            "button_hover_color", "command", "corner_radius",
+            "dropdown_fg_color", "dropdown_font", "dropdown_hover_color",
+            "dropdown_text_color", "dynamic_resizing", "fg_color", "font",
+            "height", "hover", "master", "state", "text_color",
+            "text_color_disabled", "values", "variable", "width"},
+        "CTkProgressBar": {"bg_color", "border_color", "border_width",
+            "corner_radius", "determinate_speed", "fg_color", "height",
+            "indeterminate_speed", "master", "mode", "orientation",
+            "progress_color", "variable", "width"},
+        "CTkRadioButton": {"bg_color", "border_color", "border_width_checked",
+            "border_width_unchecked", "command", "corner_radius", "fg_color",
+            "font", "height", "hover", "hover_color", "master",
+            "radiobutton_height", "radiobutton_width", "state", "text",
+            "text_color", "text_color_disabled", "textvariable", "value",
+            "variable", "width"},
+        "CTkScrollableFrame": {"bg_color", "border_color", "border_width",
+            "corner_radius", "fg_color", "height", "label_anchor",
+            "label_fg_color", "label_font", "label_text", "label_text_color",
+            "master", "orientation", "scrollbar_button_color",
+            "scrollbar_button_hover_color", "scrollbar_fg_color", "width"},
+        "CTkScrollbar": {"bg_color", "border_spacing", "button_color",
+            "button_hover_color", "command", "corner_radius", "fg_color",
+            "height", "hover", "master", "minimum_pixel_length", "orientation",
+            "width"},
+        "CTkSegmentedButton": {"background_corner_colors", "bg_color",
+            "border_width", "command", "corner_radius", "dynamic_resizing",
+            "fg_color", "font", "height", "master", "selected_color",
+            "selected_hover_color", "state", "text_color",
+            "text_color_disabled", "unselected_color", "unselected_hover_color",
+            "values", "variable", "width"},
+        "CTkSlider": {"bg_color", "border_color", "border_width",
+            "button_color", "button_corner_radius", "button_hover_color",
+            "button_length", "command", "corner_radius", "fg_color", "from_",
+            "height", "hover", "master", "number_of_steps", "orientation",
+            "progress_color", "state", "to", "variable", "width"},
+        "CTkSwitch": {"bg_color", "border_color", "border_width",
+            "button_color", "button_hover_color", "button_length", "command",
+            "corner_radius", "fg_color", "font", "height", "hover", "master",
+            "offvalue", "onvalue", "progress_color", "state", "switch_height",
+            "switch_width", "text", "text_color", "text_color_disabled",
+            "textvariable", "variable", "width"},
+        "CTkTabview": {"anchor", "bg_color", "border_color", "border_width",
+            "command", "corner_radius", "fg_color", "height", "master",
+            "segmented_button_fg_color", "segmented_button_selected_color",
+            "segmented_button_selected_hover_color",
+            "segmented_button_unselected_color",
+            "segmented_button_unselected_hover_color", "state", "text_color",
+            "text_color_disabled", "width"},
+        "CTkTextbox": {"activate_scrollbars", "bg_color", "border_color",
+            "border_spacing", "border_width", "corner_radius", "fg_color",
+            "font", "height", "master", "scrollbar_button_color",
+            "scrollbar_button_hover_color", "text_color", "width"},
+        "CTkToplevel": {"fg_color"},
+    }
+    # widgets that forward extra tk attributes (from the CTk 5.2.2 source:
+    # _valid_tk_label_attributes / _valid_tk_entry_attributes / _valid_tk_text_attributes)
+    EXTRA = {"cursor"}   # every widget: forwarded to the tkinter.Frame
+    PER_CLASS_EXTRA = {
+        "CTkLabel": {"justify", "padx", "pady", "textvariable", "state",
+                     "takefocus", "underline", "cursor"},
+        "CTkEntry": {"exportselection", "insertborderwidth", "insertofftime",
+                     "insertontime", "insertwidth", "justify",
+                     "selectborderwidth", "show", "takefocus", "validate",
+                     "validatecommand", "xscrollcommand"},
+        "CTkTextbox": {"autoseparators", "cursor", "exportselection",
+                       "insertborderwidth", "insertofftime", "insertontime",
+                       "insertwidth", "maxundo", "padx", "pady",
+                       "selectborderwidth", "spacing1", "spacing2", "spacing3",
+                       "state", "tabs", "takefocus", "undo", "wrap",
+                       "xscrollcommand", "yscrollcommand"},
+    }
+
+    def check_source(name: str, source: str) -> list:
+        problems, tree = [], ast.parse(source)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            fn = node.func
+            cls = None
+            if isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Name) \
+                    and fn.value.id in ("ctk", "W") and fn.attr in SIGS:
+                cls = fn.attr
+            elif isinstance(fn, ast.Name) and fn.id in SIGS:
+                cls = fn.id
+            if not cls:
+                continue
+            allowed = SIGS[cls] | EXTRA | PER_CLASS_EXTRA.get(cls, set())
+            for kw in node.keywords:
+                if kw.arg is None:            # **kwargs pass-through
+                    continue
+                if kw.arg not in allowed:
+                    problems.append(f"{name}:{node.lineno} {cls}({kw.arg}=…)")
+        return problems
+
+    # self-test: the exact v1.0-v1.4 bug must be flagged
+    bad = check_source("selftest.py",
+                       "import customtkinter as ctk\n"
+                       "ctk.CTkComboBox(None, values=[], textvariable=v)\n")
+    assert bad and "CTkComboBox(textvariable" in bad[0], bad
+    good = check_source("selftest.py",
+                        "import customtkinter as ctk\n"
+                        "ctk.CTkComboBox(None, values=[], variable=v)\n")
+    assert not good, good
+
+    problems = []
+    for path in sorted(Path(".").glob("himaya/**/*.py")):
+        problems += check_source(str(path), path.read_text(encoding="utf-8"))
+    assert not problems, "invalid CTk arguments:\n  " + "\n  ".join(problems)
+    print("  ✓ CTk kwargs lint: every ctk.*() call uses real CTk arguments")
 
 
 if __name__ == "__main__":

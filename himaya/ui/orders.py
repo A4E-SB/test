@@ -334,8 +334,11 @@ class OrderDialog(HimayaDialog):
         from ..models import products as products_model
         self._catalog = products_model.all_products(db)
         catalog_names = [p["name"] for p in self._catalog]
+        # NOTE: CTkComboBox takes `variable=` — `textvariable=` is NOT a
+        # supported CTk argument and makes CTk raise ValueError mid-build
+        # (the v1.0-v1.4 'empty order window' bug).
         self.product_combo = ctk.CTkComboBox(
-            form, values=catalog_names, textvariable=self.product, width=420,
+            form, values=catalog_names, variable=self.product, width=420,
             command=lambda _v: self._on_catalog_pick())
         self.product_combo.pack(padx=24)
         prow = ctk.CTkFrame(form, fg_color="transparent")

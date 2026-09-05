@@ -347,6 +347,24 @@ class HimayaApp(ctk.CTk):
     def t(self, key: str, **kwargs) -> str:
         return t(key, self.lang, **kwargs)
 
+    def report_callback_exception(self, exc, val, tb) -> None:
+        """
+        Tk swallows exceptions raised inside button/command callbacks — in a
+        noconsole build they vanish completely (the v1.0-v1.4 'empty order
+        window' bug was invisible for 4 versions because of this). Log the
+        full traceback and show a short message with the log path.
+        """
+        from ..services.diagnostics import log_crash
+        log_crash("tk-callback")
+        try:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Himaya",
+                self.t("err_unexpected") + "\n\n" + str(val)[:300]
+                + "\n\n" + str(config.DATA_DIR / "error.log"))
+        except Exception:
+            pass
+
     def toast(self, message: str, kind: str = "info") -> None:
         """
         Small transient status popup (bottom-right). The window is created
