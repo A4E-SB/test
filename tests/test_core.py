@@ -153,6 +153,40 @@ def test_orders_and_aggregates(tmp: Path) -> None:
     check("money_saved counts blocked shipping", orders.money_saved(db) == 650.0)
 
 
+def test_period_aware_aggregates(tmp: Path) -> None:
+    """v1.5: dashboard figures must respect the selected period."""
+    from datetime import date as _d, timedelta as _td
+    from himaya.models.orders import (money_saved, total_lost, completion_rate,
+                                      paid_revenue, pending_revenue, create)
+
+    db = make_db(tmp)
+    cid = customers.create(db, "Period Client", "0770001122", wilaya="Alger")
+    old = (_d.today() - _td(days=20)).isoformat()
+    create(db, cid, "Ancien bloqué", 1000, status="blocked",
+           shipping_cost=700, order_date=old)
+    create(db, cid, "Ancien payé", 2000, status="paid",
+           order_date=old)
+    create(db, cid, "Bloqué récent", 1000, status="blocked", shipping_cost=500)
+    create(db, cid, "Payé récent", 3000, status="paid")
+    create(db, cid, "En cours", 1500, status="confirmed")
+
+    check("saved all-time", money_saved(db) == 1200)
+    check("saved 7d window", money_saved(db, days=7) == 500)
+    check("lost all-time == lost 7d (no losses yet)",
+          total_lost(db) == total_lost(db, days=7) == 0)
+    create(db, cid, "Fantôme", 900, status="ghosted", shipping_cost=600)
+    check("lost 7d sees fresh ghost", total_lost(db, days=7) == 600)
+    check("today window sees the fresh ghost", total_lost(db, days=0) == 600)
+    check("revenue all-time", paid_revenue(db) == 5000)
+    check("revenue 7d", paid_revenue(db, days=7) == 3000)
+    check("pending 7d", pending_revenue(db, days=7) == 1500)
+    # at this point: 6 orders all-time (2 paid), 4 in the last 7d (1 paid)
+    check("completion all-time (2/6)",
+          abs(completion_rate(db) - 33.3333) < 0.001)
+    check("completion 7d (1/4)",
+          abs(completion_rate(db, days=7) - 25.0) < 0.001)
+
+
 def test_order_date_and_companies(tmp: Path) -> None:
     """v1.4: custom order date + custom delivery companies."""
     from datetime import date as _date
@@ -524,6 +558,7 @@ def main() -> int:
     test_phone_risk(tmp)
     test_orders_and_aggregates(tmp)
     test_order_date_and_companies(tmp)
+    test_period_aware_aggregates(tmp)
     test_reports(tmp)
     test_inquiries(tmp)
     test_blacklist_and_hma(tmp)

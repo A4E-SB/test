@@ -172,30 +172,60 @@ def count_by_status(db: Database) -> dict:
     return {r["status"]: r["n"] for r in rows}
 
 
-def completion_rate(db: Database) -> float:
-    """% of all orders that reached delivered/paid."""
-    total = db.scalar("SELECT COUNT(*) FROM orders") or 0
+def _cutoff(days: int | None) -> str:
+    """ISO date lower bound for a 'last N days' window (None = all time)."""
+    if days is None:
+        return "0000-01-01"
+    return (date.today() - timedelta(days=days)).isoformat()
+
+
+def completion_rate(db: Database, days: int | None = None) -> float:
+    """% of orders (in the period) that reached delivered/paid."""
+    c = _cutoff(days)
+    total = db.scalar(
+        "SELECT COUNT(*) FROM orders WHERE date >= ?", (c,)) or 0
     done = db.scalar(
-        "SELECT COUNT(*) FROM orders WHERE status IN ('delivered','paid')") or 0
+        "SELECT COUNT(*) FROM orders WHERE date >= ? "
+        "AND status IN ('delivered','paid')", (c,)) or 0
     return (done / total * 100.0) if total else 0.0
 
 
-def total_lost(db: Database) -> float:
-    """Total money lost to bad orders (see services.reports for the breakdown)."""
+def total_lost(db: Database, days: int | None = None) -> float:
+    """Money lost to bad orders in the period (shipping + fake payments)."""
+    c = _cutoff(days)
+    q = ",".join(f"'{s}'" for s in config.LOST_SHIPPING_STATUSES)
     lost_shipping = db.scalar(
-        "SELECT COALESCE(SUM(shipping_cost),0) FROM orders WHERE status IN ({})".format(
-            ",".join(f"'{s}'" for s in config.LOST_SHIPPING_STATUSES))) or 0
+        f"SELECT COALESCE(SUM(shipping_cost),0) FROM orders "
+        f"WHERE date >= ? AND status IN ({q})", (c,)) or 0
     fake = db.scalar(
         "SELECT COALESCE(SUM(price + shipping_cost),0) FROM orders "
-        "WHERE status = 'fake_payment'") or 0
+        "WHERE date >= ? AND status = 'fake_payment'", (c,)) or 0
     return float(lost_shipping) + float(fake)
 
 
-def money_saved(db: Database) -> float:
-    """Shipping costs avoided by blocking orders from bad numbers."""
+def money_saved(db: Database, days: int | None = None) -> float:
+    """Shipping costs avoided by blocking bad orders, in the period."""
     saved = db.scalar(
-        "SELECT COALESCE(SUM(shipping_cost),0) FROM orders WHERE status = 'blocked'") or 0
+        "SELECT COALESCE(SUM(shipping_cost),0) FROM orders "
+        "WHERE date >= ? AND status = 'blocked'", (_cutoff(days),)) or 0
     return float(saved)
+
+
+def paid_revenue(db: Database, days: int | None = None) -> float:
+    """Collected revenue (status 'paid') in the period — same scope as
+    services.reports (v1.3 unification)."""
+    v = db.scalar("SELECT COALESCE(SUM(price),0) FROM orders "
+                  "WHERE date >= ? AND status = 'paid'", (_cutoff(days),))
+    return float(v or 0)
+
+
+def pending_revenue(db: Database, days: int | None = None) -> float:
+    """Money still to collect (pending/confirmed/shipped/delivered)."""
+    v = db.scalar(
+        "SELECT COALESCE(SUM(price),0) FROM orders WHERE date >= ? "
+        "AND status IN ('pending','confirmed','shipped','delivered')",
+        (_cutoff(days),))
+    return float(v or 0)
 
 
 def count_since(db: Database, days: int, statuses: list[str]) -> int:

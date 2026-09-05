@@ -407,6 +407,34 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.5 design kit: hero / compact stats / horizontal bars -------------
+    from himaya.ui.widgets import HeroCard, CompactStat, HBarChart
+    hero = HeroCard(app, "Money saved")
+    hero.set("12 400 DA", sub="3 blocked")
+    assert hero.value_lbl is not None
+    cs = CompactStat(app, "Revenue", value="9 000 DA", sub="deposits: 1 000")
+    cs.set("9 500 DA")            # StatCard.set contract works
+    bars = HBarChart(app)
+    bars.set_data([("●  Ghosted  ×3", 1200, "#e74c3c"),
+                   ("●  Refused  ×1", 400, "#e67e22"),
+                   ("zero", 0, "#fff")])   # zeros skipped
+    assert len(bars._rows) == 2, len(bars._rows)
+    bars.set_data([])             # empty data clears
+    assert len(bars._rows) == 0
+    print("  ✓ v1.5 design kit: HeroCard/CompactStat/HBarChart behave")
+
+    _dash_src = Path("himaya/ui/dashboard.py").read_text(encoding="utf-8")
+    _rep_src = Path("himaya/ui/reports_ui.py").read_text(encoding="utf-8")
+    assert "HeroCard(self" in _dash_src, "dashboard must have the hero card"
+    assert "money_saved(db, days)" in _dash_src, "hero must follow the period"
+    assert "completion_rate(db, days)" in _dash_src, "completion follows period"
+    assert "paid_revenue(db, days)" in _dash_src, "revenue follows period"
+    assert "total_lost(db, days)" in _dash_src, "losses follow the period"
+    assert "self.c_real = CompactStat" in _rep_src, "real profit is its own card"
+    assert "self.loss_bars = HBarChart" in _rep_src, "losses shown as bars"
+    assert _rep_src.count("make_tree(") == 1, "only the wilaya table remains"
+    print("  ✓ dashboard & reports follow the v1.5 design contracts")
+
     # ---- v1.4.2: windows must fit the screen (DPI-aware) --------------------
     from himaya.ui import widgets as _W2
     from himaya.ui.widgets import fit_geometry as _fg

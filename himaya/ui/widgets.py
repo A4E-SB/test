@@ -575,6 +575,124 @@ class HimayaDialog(ctk.CTkToplevel):
 
 
 # ---------------------------------------------------------------------------
+# v1.5 design kit (dense analytics): section headers, compact stats, hero
+# card and a horizontal bar chart — the "bank statement" hierarchy.
+# ---------------------------------------------------------------------------
+
+def section_header(master, text: str) -> ctk.CTkFrame:
+    """Small accent rule + bold label above a cluster of stats."""
+    row = ctk.CTkFrame(master, fg_color="transparent")
+    bar = ctk.CTkFrame(row, fg_color=config.COLOR_ACCENT, width=3, height=14,
+                       corner_radius=2)
+    bar.pack(side="left", padx=(0, 8))
+    lbl = ctk.CTkLabel(row, text=text, font=F(11, "bold"),
+                       text_color=config.COLOR_ACCENT, anchor="w")
+    lbl.pack(side="left")
+    return row
+
+
+class CompactStat(ctk.CTkFrame):
+    """Dense stat tile: small title, colored value, optional sub-line.
+    Same clickable contract as StatCard, half the footprint."""
+
+    def __init__(self, master, title: str, value: str = "—",
+                 color: str = config.COLOR_ACCENT, sub: str = "", on_click=None):
+        super().__init__(master, fg_color=config.COLOR_CARD, corner_radius=8,
+                         border_width=1, border_color=config.COLOR_BORDER)
+        self._on_click = on_click
+        self.grid_columnconfigure(1, weight=1)
+        bar = ctk.CTkFrame(self, fg_color=color, width=3, corner_radius=2)
+        bar.grid(row=0, column=0, rowspan=3, sticky="ns", padx=(7, 0), pady=8)
+        self.title_lbl = ctk.CTkLabel(self, text=title, font=F(10),
+                                      text_color=config.COLOR_FG_DIM,
+                                      anchor="w", justify="left",
+                                      wraplength=150)
+        self.title_lbl.grid(row=0, column=1, sticky="ew", padx=(8, 10), pady=(8, 0))
+        self.value_lbl = ctk.CTkLabel(self, text=value, font=F(16, "bold"),
+                                      text_color=color, anchor="w",
+                                      justify="left", wraplength=160)
+        self.value_lbl.grid(row=1, column=1, sticky="ew", padx=(8, 10))
+        self.sub_lbl = ctk.CTkLabel(self, text=sub, font=F(9),
+                                    text_color=config.COLOR_FG_DIM, anchor="w",
+                                    justify="left", wraplength=160)
+        self.sub_lbl.grid(row=2, column=1, sticky="ew", padx=(8, 10), pady=(0, 7))
+        if not sub:
+            self.sub_lbl.grid_remove()
+        if on_click:
+            self._make_clickable()
+
+    set = StatCard.set          # identical contract (value, sub)
+
+    _make_clickable = StatCard._make_clickable
+
+
+class HeroCard(ctk.CTkFrame):
+    """THE number of the page: big value + context line, full-width band."""
+
+    def __init__(self, master, title: str, color: str = config.COLOR_GREEN,
+                 on_click=None):
+        super().__init__(master, fg_color=config.COLOR_CARD, corner_radius=12,
+                         border_width=1, border_color=config.COLOR_BORDER)
+        self._on_click = on_click
+        self.grid_columnconfigure(1, weight=1)
+        icon_bar = ctk.CTkFrame(self, fg_color=color, width=5, corner_radius=3)
+        icon_bar.grid(row=0, column=0, rowspan=3, sticky="ns", padx=(12, 0), pady=14)
+        self.title_lbl = ctk.CTkLabel(self, text=title, font=F(12),
+                                      text_color=config.COLOR_FG_DIM, anchor="w")
+        self.title_lbl.grid(row=0, column=1, sticky="w", padx=(10, 16), pady=(12, 0))
+        self.value_lbl = ctk.CTkLabel(self, text="—", font=F(32, "bold"),
+                                      text_color=color, anchor="w",
+                                      justify="left", wraplength=520)
+        self.value_lbl.grid(row=1, column=1, sticky="w", padx=(10, 16))
+        self.sub_lbl = ctk.CTkLabel(self, text="", font=F(11),
+                                    text_color=config.COLOR_FG_DIM, anchor="w",
+                                    justify="left", wraplength=520)
+        self.sub_lbl.grid(row=2, column=1, sticky="w", padx=(10, 16), pady=(0, 12))
+        if on_click:
+            self._make_clickable()
+
+    set = StatCard.set
+    _make_clickable = StatCard._make_clickable
+
+
+class HBarChart(ctk.CTkFrame):
+    """Horizontal bar list: label | track+fill (proportional) | amount+share.
+    Tk-native: the fill is placed with place(relwidth=...) so it resizes
+    with the track without any pixel math."""
+
+    def __init__(self, master, height: int = 24):
+        super().__init__(master, fg_color="transparent")
+        self._row_h = height
+        self._rows: list[tuple[ctk.CTkFrame, ctk.CTkFrame]] = []
+
+    def set_data(self, items: list) -> None:
+        """items: (label, value, color) sorted by importance; zeros skipped."""
+        for row, _fill in self._rows:
+            row.destroy()
+        self._rows = []
+        items = [(l, v, c) for (l, v, c) in items if v > 0]
+        if not items:
+            return
+        peak = max(v for _l, v, _c in items) or 1.0
+        for label, value, color in items:
+            row = ctk.CTkFrame(self, fg_color="transparent")
+            row.pack(fill="x", pady=(self._row_h - 18) // 2)
+            row.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(row, text=label, font=F(11), anchor="w", width=150,
+                         justify="left").grid(row=0, column=0, sticky="w")
+            track = ctk.CTkFrame(row, fg_color=config.COLOR_BG_3,
+                                 height=12, corner_radius=6)
+            track.grid(row=0, column=1, sticky="ew", padx=8)
+            fill = ctk.CTkFrame(track, fg_color=color, corner_radius=6)
+            fill.place(relwidth=max(0.02, value / peak), relheight=1)
+            share = f"{value / peak * 100:.0f}%"
+            ctk.CTkLabel(row, text=f"{share}", font=F(10),
+                         text_color=config.COLOR_FG_DIM, width=36).grid(
+                             row=0, column=2, sticky="e")
+            self._rows.append((row, fill))
+
+
+# ---------------------------------------------------------------------------
 # Empty state (v1.2): icon + short message instead of a bare dash
 # ---------------------------------------------------------------------------
 
