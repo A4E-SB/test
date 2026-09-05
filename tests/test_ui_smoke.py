@@ -328,6 +328,23 @@ def main() -> int:
     app.set_language("fr")
     print("  ✓ old sidebar frame destroyed on switch (v1.1.3 fix)")
 
+    # ---- v1.3: shared status-badge + trust helpers --------------------------
+    from himaya.ui import widgets as w
+    assert w.row_tag("paid") == "row_paid" and w.row_tag("ghosted") == "row_ghosted"
+    assert w.row_tag("weird") in ("danger", "caution", "good", "dim", "")
+    assert w._blend("#000000", "#ffffff", 0.5) == "#808080"
+    assert w.status_badge_text("paid", "fr").startswith("\u25cf")
+    assert (w.trust_glyph(90)[0] == "\u2713" and w.trust_glyph(50)[0] == "\u26a0"
+            and w.trust_glyph(10)[0] == "\U0001f512")
+    # every status must have its tinted row tag configured by make_tree
+    from himaya import config as _cfg
+    import inspect as _insp
+    _src = _insp.getsource(w.make_tree)
+    assert 'row_{status}' in _src, "make_tree must configure per-status tags"
+    for _st in _cfg.STATUS_COLORS:
+        assert w.row_tag(_st) == f"row_{_st}"
+    print("  ✓ shared badge helpers + per-status row tags (v1.3)")
+
     # ---- v1.2.3: quick-add ask_line must WAIT and return the fields --------
     # (v1.2.0-2 bug: it returned dialog.result immediately — always None —
     # so the ⚡ quick-paste button in the order dialog did nothing)

@@ -306,6 +306,8 @@ _TR = {
     "rel_desc": {'fr': "Commandes bloquées en « confirmée / expédiée » depuis trop longtemps. Un rappel copié-collé suffit souvent à débloquer (ou à révéler un fantôme).", 'en': "Orders stuck in 'confirmed / shipped' for too long. A quick copy-pasted reminder often unblocks them (or reveals a ghost).", 'ar': "طلبيات عالقة في « مؤكدة / مُرسلة » منذ مدة طويلة. تذكير واحد بالنسخ واللصق كثيراً ما يحلّها (أو يكشف الشبح)."},
     "rel_days": {'fr': "Jours d'attente", 'en': "Days waiting", 'ar': "أيام الانتظار"},
     "rel_copy": {'fr': "Copier le rappel", 'en': "Copy reminder", 'ar': "نسخ التذكير"},
+    "rel_copy_ar": {'fr': "📢 Rappel en arabe", 'en': "📢 Reminder in Arabic", 'ar': "📢 تذكير بالعربية"},
+    "rel_copy_fr": {'fr': "📢 Rappel en français", 'en': "📢 Reminder in French", 'ar': "📢 تذكير بالفرنسية"},
     "rel_none": {'fr': "Aucune commande coincée ✓", 'en': "No stuck orders ✓", 'ar': "لا توجد طلبيات عالقة ✓"},
     "rel_threshold": {'fr': "Seuil (jours)", 'en': "Threshold (days)", 'ar': "الحد (أيام)"},
     "man_btn": {'fr': "📋 Bordereau", 'en': "📋 Manifest", 'ar': "📋 وصل التسليم"},

@@ -33,8 +33,11 @@ def summary_for_range(db: Database, date_from: str, date_to: str) -> dict:
     pending = scal("SELECT COALESCE(SUM(price),0) FROM orders "
                    "WHERE status IN ('pending','confirmed','shipped','delivered') "
                    "AND date BETWEEN ? AND ?", (date_from, date_to))
+    # v1.3 fix: costs use the SAME scope as revenue ('paid' only). The old
+    # query included 'delivered' shipping, so "profit" could be negative
+    # while "real profit" (paid-only) showed a HIGHER number — nonsense.
     costs = scal("SELECT COALESCE(SUM(shipping_cost),0) FROM orders "
-                 "WHERE status IN ('delivered','paid') AND date BETWEEN ? AND ?",
+                 "WHERE status = 'paid' AND date BETWEEN ? AND ?",
                  (date_from, date_to))
     q = ",".join(f"'{s}'" for s in config.LOST_SHIPPING_STATUSES)
     lost_shipping = scal(f"SELECT COALESCE(SUM(shipping_cost),0) FROM orders "
@@ -45,11 +48,13 @@ def summary_for_range(db: Database, date_from: str, date_to: str) -> dict:
                      (date_from, date_to))
     saved = scal("SELECT COALESCE(SUM(shipping_cost),0) FROM orders "
                  "WHERE status = 'blocked' AND date BETWEEN ? AND ?", (date_from, date_to))
-    # real profit: subtract product costs when the catalog knows them
-    real_profit = scal(
-        "SELECT COALESCE(SUM(o.price - COALESCE(p.cost_price, 0) - o.shipping_cost), 0) "
+    # real profit = profit minus product costs (same 'paid' scope), so it is
+    # ALWAYS <= profit — the two numbers now tell one coherent story
+    product_costs = scal(
+        "SELECT COALESCE(SUM(COALESCE(p.cost_price, 0)), 0) "
         "FROM orders o LEFT JOIN products p ON p.id = o.product_id "
         "WHERE o.status = 'paid' AND o.date BETWEEN ? AND ?", (date_from, date_to))
+    real_profit = rev - costs - product_costs
     deposits = scal("SELECT COALESCE(SUM(deposit),0) FROM orders "
                     "WHERE deposit > 0 AND date BETWEEN ? AND ?",
                     (date_from, date_to))

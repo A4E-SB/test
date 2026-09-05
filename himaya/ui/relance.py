@@ -66,10 +66,10 @@ class RelancePage(ctk.CTkFrame):
 
         bar = ctk.CTkFrame(list_frame, fg_color="transparent")
         bar.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
-        ctk.CTkButton(bar, text="📢 " + app.t("rel_copy") + " (AR)", height=30,
+        ctk.CTkButton(bar, text=app.t("rel_copy_ar"), height=30,
                       command=lambda: self.copy_reminder("ar")
                       ).pack(side="left", padx=2)
-        ctk.CTkButton(bar, text="📢 " + app.t("rel_copy") + " (FR)", height=30,
+        ctk.CTkButton(bar, text=app.t("rel_copy_fr"), height=30,
                       command=lambda: self.copy_reminder("fr")
                       ).pack(side="left", padx=2)
         self.count_lbl = ctk.CTkLabel(bar, text="", font=F(11),

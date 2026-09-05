@@ -83,6 +83,14 @@ def card(master, **kwargs) -> ctk.CTkFrame:
                         **kwargs)
 
 
+def _blend(base: str, tint: str, alpha: float) -> str:
+    """Blend `tint` into `base` at `alpha` (0..1) -> #rrggbb (hex math)."""
+    b = tuple(int(base[i:i + 2], 16) for i in (1, 3, 5))
+    t = tuple(int(tint[i:i + 2], 16) for i in (1, 3, 5))
+    mix = tuple(round(bt + (tn - bt) * alpha) for bt, tn in zip(b, t))
+    return "#{:02x}{:02x}{:02x}".format(*mix)
+
+
 # ---------------------------------------------------------------------------
 # Dark ttk.Treeview (used for all tables)
 # ---------------------------------------------------------------------------
@@ -118,11 +126,19 @@ def make_tree(master, columns: list[tuple[str, str, int]], rid: bool = False,
         # content width (hard clipping was the v1.1 bug). ttk's option is
         # MINWIDTH — 'minsize' is a grid option and raises TclError.
         tree.column(cid, width=width, minwidth=width, anchor="w", stretch=True)
-    # row color tags
+    # row color tags (generic severity — used by e.g. blacklist rows)
     tree.tag_configure("danger", foreground=config.COLOR_RED)
     tree.tag_configure("caution", foreground=config.COLOR_YELLOW)
     tree.tag_configure("good", foreground=config.COLOR_GREEN)
     tree.tag_configure("dim", foreground=config.COLOR_FG_DIM)
+    # STATUS badge tags (v1.3): one shared implementation — every status gets
+    # a row tag with the status foreground + a subtle tinted background
+    # (blend of the status color into the row surface). ttk tags style whole
+    # rows, so the tint is kept faint to read as a badge, not a highlight.
+    for status, color in config.STATUS_COLORS.items():
+        tree.tag_configure(f"row_{status}",
+                           foreground=color,
+                           background=_blend(config.COLOR_BG_2, color, 0.10))
     return tree
 
 
@@ -453,9 +469,14 @@ class EmptyState(ctk.CTkFrame):
         ctk.CTkLabel(self, text=message, font=F(14, "bold"),
                      text_color=config.COLOR_FG_DIM).grid(row=1, column=0)
         if hint:
-            ctk.CTkLabel(self, text=hint, font=F(11),
-                         text_color=config.COLOR_FG_DIM, wraplength=340,
-                         justify="left").grid(row=2, column=0, pady=(2, 0))
+            # wraplength tracks the ACTUAL panel width (bind <Configure>) so
+            # long hints wrap instead of being clipped by a narrow container
+            lbl = ctk.CTkLabel(self, text=hint, font=F(11),
+                               text_color=config.COLOR_FG_DIM, wraplength=340,
+                               justify="left")
+            lbl.grid(row=2, column=0, pady=(2, 0), sticky="ew")
+            lbl.bind("<Configure>",
+                     lambda e, l=lbl: l.configure(wraplength=max(120, e.width - 8)))
 
 
 # ---------------------------------------------------------------------------
@@ -639,7 +660,13 @@ def rtl_anchor(app) -> str:
 
 
 def row_tag(status: str) -> str:
-    """Treeview color tag for an order status."""
+    """
+    Treeview tag for an order status: the shared tinted-badge row tag.
+    Unknown statuses fall back to the old severity names (still configured
+    in every tree), so any caller is safe.
+    """
+    if status in config.STATUS_COLORS:
+        return f"row_{status}"
     if status in ("ghosted", "fake_payment", "blocked"):
         return "danger"
     if status in ("refused", "phone_off"):

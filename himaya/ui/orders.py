@@ -96,28 +96,36 @@ class OrdersPage(ctk.CTkFrame):
         self.tree.bind("<Delete>", lambda e: self.delete_order())
 
         # ---- status change bar -----------------------------------------------------
+        # v1.3 layout rule: the 12 status chips live in a HORIZONTALLY
+        # SCROLLABLE strip -- they can never clip the last chip ("Block...")
+        # or squeeze the right-side buttons, whatever the window width.
         bar = ctk.CTkFrame(list_frame, fg_color="transparent")
         bar.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
-        ctk.CTkLabel(bar, text=app.t("status") + " :",
-                     font=F(11), text_color=config.COLOR_FG_DIM).pack(side="left")
+
+        right = ctk.CTkFrame(bar, fg_color="transparent")
+        right.pack(side="right")
+        self.count_lbl = ctk.CTkLabel(right, text="", font=F(11),
+                                      text_color=config.COLOR_FG_DIM)
+        self.count_lbl.pack(side="right")
+        ctk.CTkButton(right, text=self.app.t("edit"), height=26, width=70,
+                      command=self.edit_order).pack(side="right", padx=4)
+        ctk.CTkButton(right, text="🖨️", height=26, width=44,
+                      fg_color=config.COLOR_BG_3,
+                      command=self.print_labels).pack(side="right", padx=2)
+
+        chips = ctk.CTkScrollableFrame(bar, orientation="horizontal",
+                                       height=36, fg_color="transparent")
+        chips.pack(side="left", fill="x", expand=True)
         self.status_btns = []
-        for s in config.ALL_STATUSES:
-            color = config.STATUS_COLORS.get(s, config.COLOR_BG_3)
-            btn = ctk.CTkButton(bar, text=f"●  {t(f'st_{s}', app.lang)}",
+        for st_name in config.ALL_STATUSES:
+            color = config.STATUS_COLORS.get(st_name, config.COLOR_BG_3)
+            btn = ctk.CTkButton(chips, text=f"●  {t(f'st_{st_name}', app.lang)}",
                                 height=26, width=88,
                                 fg_color=config.COLOR_BG_3, hover_color=color,
                                 text_color=color, font=F(10, "bold"),
-                                command=lambda st=s: self.set_status(st))
+                                command=lambda st=st_name: self.set_status(st))
             btn.pack(side="left", padx=2)
             self.status_btns.append(btn)
-
-        self.count_lbl = ctk.CTkLabel(bar, text="", font=F(11),
-                                      text_color=config.COLOR_FG_DIM)
-        self.count_lbl.pack(side="right")
-        ctk.CTkButton(bar, text=self.app.t("edit"), height=26, width=70,
-                      command=self.edit_order).pack(side="right", padx=4)
-        ctk.CTkButton(bar, text="🖨️", height=26, width=44, fg_color=config.COLOR_BG_3,
-                      command=self.print_labels).pack(side="right", padx=2)
         self.refresh()
 
     # ------------------------------------------------------------------
