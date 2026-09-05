@@ -94,6 +94,9 @@ class PasswordGate(ctk.CTkToplevel):
         if security.verify_password(self.app.db, self.pw.get()):
             self.app._unlocked = True
             self.destroy()
+            # resume background page pre-building (paused behind the lock)
+            self.app._prebuilding_off = False
+            self.app.after(400, self.app._prebuild_pages)
             # first launch + password: the tour was postponed until now
             if not security_settings_done(self.app.db):
                 self.app.after(200, self.app._show_tour)

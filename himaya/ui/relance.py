@@ -15,7 +15,8 @@ from .. import config
 from ..i18n import t
 from ..models import settings_store
 from ..services import relance
-from .widgets import rtl_anchor, rtl_side, F, copy_to_clipboard, make_tree, row_tag
+from .widgets import F, Debouncer, copy_to_clipboard, make_tree, row_tag
+from .widgets import rtl_anchor, rtl_side
 
 
 class RelancePage(ctk.CTkFrame):
@@ -43,7 +44,12 @@ class RelancePage(ctk.CTkFrame):
         self.thr_spin = ctk.CTkEntry(thr, textvariable=self.thr_var, width=46,
                                      height=28)
         self.thr_spin.pack(side="right", padx=(0, 10))
-        self.thr_var.trace_add("write", lambda *_: self._save_threshold())
+        # debounced + change-guard: re-querying on every keystroke made the
+        # field feel heavy while typing
+        self._thr_deb = Debouncer(self, 350)
+        self._thr_applied = self.thr_var.get()
+        self.thr_var.trace_add("write", lambda *_: self._thr_deb.call(
+            self._save_threshold))
 
         # stuck orders list
         list_frame = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
@@ -74,8 +80,10 @@ class RelancePage(ctk.CTkFrame):
 
     def _save_threshold(self) -> None:
         val = self.thr_var.get().strip()
-        if val.isdigit() and 1 <= int(val) <= 30:
+        if (val.isdigit() and 1 <= int(val) <= 30
+                and val != self._thr_applied):
             settings_store.set_setting(self.app.db, "relance_days", val)
+            self._thr_applied = val
             self.refresh()
 
     def _threshold(self) -> int:

@@ -37,7 +37,9 @@ class CustomersPage(ctk.CTkFrame):
         ctk.CTkLabel(top, text=app.t("cust_title"), font=F(22, "bold"),
                  anchor=W.rtl_anchor(app)).pack(side=W.rtl_side(app))
         self.search_var = tk.StringVar()
-        self.search_var.trace_add("write", lambda *_: self.refresh())
+        self._search_deb = W.Debouncer(self, 250)
+        self.search_var.trace_add("write",
+                                  lambda *_: self._search_deb.call(self.refresh))
         entry = ctk.CTkEntry(top, textvariable=self.search_var, width=280,
                              placeholder_text=app.t("search"), height=36)
         entry.pack(side="left", padx=12)

@@ -92,6 +92,8 @@ class HimayaApp(ctk.CTk):
         self.bind_all("<Control-K>", lambda e: self.open_global_search())
 
         self.show_page("dashboard")
+        # build the other pages in the background -> instant first switches
+        self.after(400, self._prebuild_pages)
 
         # password lock first (if the seller set one in Settings → Security);
         # on success it shows the first-launch tour itself when due
@@ -202,8 +204,8 @@ class HimayaApp(ctk.CTk):
 
     # ------------------------------------------------------------------ pages
 
-    def show_page(self, name: str) -> None:
-        # import here to avoid circular imports at module load
+    def _page_class(self, name: str):
+        """Lazy class lookup (imports here avoid circular imports)."""
         from .dashboard import DashboardPage
         from .customers import CustomersPage
         from .orders import OrdersPage
@@ -216,14 +218,16 @@ class HimayaApp(ctk.CTk):
         from .labels_ui import LabelsPage
         from .settings_ui import SettingsPage
 
-        classes = {
+        return {
             "dashboard": DashboardPage, "customers": CustomersPage,
             "orders": OrdersPage, "products": ProductsPage,
             "relance": RelancePage, "detector": DetectorPage,
             "time_wasters": TimeWastersPage, "reports": ReportsPage,
             "transfer": TransferPage, "labels": LabelsPage,
             "settings": SettingsPage,
-        }
+        }[name]
+
+    def show_page(self, name: str) -> None:
         # hide current page, then show the target one — pages are CACHED so
         # switching is instant after the first visit (no rebuild lag)
         if self.page is not None:
@@ -237,11 +241,32 @@ class HimayaApp(ctk.CTk):
                           text_color="#ffffff" if active else config.COLOR_FG)
         self.page_name = name
         if name not in self._pages:
-            self._pages[name] = classes[name](self.main, self)
+            self._pages[name] = self._page_class(name)(self.main, self)
         self.page = self._pages[name]
         self.page.grid(row=0, column=0, sticky="nsew")
         if hasattr(self.page, "refresh"):
             self.page.refresh()
+
+    def _prebuild_pages(self) -> None:
+        """
+        Build the remaining pages in small idle slices (v1.1.4): building a
+        page means creating 100-300 widgets, which froze the UI the first
+        time each section was opened. Pre-building them in the background
+        makes EVERY first click instant; startup stays responsive because
+        only one page is built per slice.
+        """
+        if getattr(self, "_prebuilding_off", False):
+            return
+        remaining = [key for key, _lbl, _ico in PAGES
+                     if key not in self._pages]
+        if not remaining:
+            return
+        try:
+            self._pages[remaining[0]] = self._page_class(remaining[0])(
+                self.main, self)
+        except Exception:
+            pass   # a failed prebuild must never break the app
+        self.after(60, self._prebuild_pages)
 
     def refresh_page(self) -> None:
         if self.page is not None and hasattr(self.page, "refresh"):
@@ -317,6 +342,7 @@ class HimayaApp(ctk.CTk):
         if not security.has_password(self.db):
             self._unlocked = True
             return
+        self._prebuilding_off = True   # don't build pages behind a lock
         from .tour import PasswordGate
         PasswordGate(self, self)
 

@@ -62,6 +62,11 @@ class Database:
             if current < SCHEMA_VERSION:
                 # Future ALTER TABLE migrations go here, in order.
                 self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            # indexes on migration-added columns (cannot live in schema.sql:
+            # they would run BEFORE the column exists on a v1 database)
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_orders_product "
+                "ON orders(product_id)")
             self.conn.commit()
 
     def _migrate_v2(self) -> None:

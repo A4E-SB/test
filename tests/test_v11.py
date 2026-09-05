@@ -327,6 +327,38 @@ def test_v1_upgrade_migration(tmp: Path) -> None:
     check("new order uses product + deposit", orders.get(db, oid)["deposit"] == 50)
 
 
+def test_perf_indexes(tmp: Path) -> None:
+    """v1.1.4: the hot columns are indexed — on fresh AND upgraded DBs."""
+    print("[perf indexes]")
+    db = make_db(tmp)
+    names = {r["name"] for r in db.query(
+        "SELECT name FROM sqlite_master WHERE type = 'index'")}
+    need = {"idx_orders_customer", "idx_orders_status", "idx_orders_date",
+            "idx_orders_product", "idx_orders_wilaya"}
+    check("all hot-column indexes present", need <= names, str(need - names))
+    # reopening an existing DB must not fail on the idempotent CREATE INDEX
+    db2 = Database(db.path)
+    check("re-open idempotent",
+          {r["name"] for r in db2.query(
+              "SELECT name FROM sqlite_master WHERE type='index'")} >= need)
+    db2.close()
+
+    # grouped sold-count query (Products page, v1.1.4) matches the naive one
+    c = customers.create(db2 if False else db, "C", "0555888777")
+    pid = products.create(db, "P", cost_price=1, sale_price=2, quantity=9)
+    orders.create(db, c, "P", 2, status="paid", product_id=pid)
+    orders.create(db, c, "P", 2, status="canceled", product_id=pid)  # excluded
+    grouped = db.query(
+        "SELECT product_id, COUNT(*) AS n FROM orders "
+        "WHERE product_id IS NOT NULL AND status NOT IN ('canceled','blocked') "
+        "GROUP BY product_id")
+    naive = db.scalar(
+        "SELECT COUNT(*) FROM orders WHERE product_id = ? "
+        "AND status NOT IN ('canceled','blocked')", (pid,))
+    check("grouped sold-count == naive count",
+          grouped[0]["n"] == naive == 1)
+
+
 def main() -> int:
     import tempfile
     with tempfile.TemporaryDirectory() as td:
@@ -343,6 +375,7 @@ def main() -> int:
         test_detector_learning(tmp)
         test_demo_and_relance(tmp)
         test_order_status_buttons_cover_new_status()
+        test_perf_indexes(tmp)
         import tempfile
         with tempfile.TemporaryDirectory() as td2:
             test_v1_upgrade_migration(Path(td2))

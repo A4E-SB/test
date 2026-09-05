@@ -63,13 +63,18 @@ class ProductsPage(ctk.CTkFrame):
     def refresh(self) -> None:
         db = self.app.db
         rows = products_model.all_products(db)
+        # ONE grouped query for all sold counts (v1.1.4) — the previous
+        # per-product COUNT did a full orders scan per catalog row
+        sold_map = {r["product_id"]: r["n"] for r in db.query(
+            "SELECT product_id, COUNT(*) AS n FROM orders "
+            "WHERE product_id IS NOT NULL "
+            "AND status NOT IN ('canceled','blocked') "
+            "GROUP BY product_id")}
         self.tree.delete(*self.tree.get_children())
         for p in rows:
             margin = (p["sale_price"] - p["cost_price"]) if p["sale_price"] else 0
             low = p["quantity"] <= (p["low_stock"] or 0)
-            sold = db.scalar(
-                "SELECT COUNT(*) FROM orders WHERE product_id = ? "
-                "AND status NOT IN ('canceled','blocked')", (p["id"],)) or 0
+            sold = sold_map.get(p["id"], 0)
             self.tree.insert("", "end", iid=str(p["id"]), values=(
                 p["name"], f"{p['cost_price']:,.0f}".replace(",", " "),
                 f"{p['sale_price']:,.0f}".replace(",", " "),

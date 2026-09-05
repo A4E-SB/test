@@ -167,10 +167,11 @@ class ReportsPage(ctk.CTkScrollableFrame):
                 self.app.t("wst_suggest") if w["suggest_deposit"] else ""),
                 tags=("danger",) if w["suggest_deposit"] else ())
 
-        # loss breakdown
+        # loss breakdown (computed ONCE — v1.1.4 ran it twice)
         self.tree.delete(*self.tree.get_children())
         f, tt = s["from"], s["to"]
-        for status, data in reports.loss_breakdown(db, f, tt).items():
+        breakdown = reports.loss_breakdown(db, f, tt)
+        for status, data in breakdown.items():
             if status == "total":
                 continue
             if data["count"] == 0:
@@ -179,7 +180,7 @@ class ReportsPage(ctk.CTkScrollableFrame):
                 t(f"st_{status}", lang), data["count"],
                 config.fmt_money(data["amount"], lang)),
                 tags=("danger" if status == "fake_payment" else "caution",))
-        total = reports.loss_breakdown(db, f, tt)["total"]
+        total = breakdown["total"]
         if total["count"]:
             self.tree.insert("", "end", values=(
                 self.app.t("total"), total["count"],

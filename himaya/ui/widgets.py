@@ -385,6 +385,37 @@ class ScamAlert(ctk.CTkToplevel):
 # Small helpers
 # ---------------------------------------------------------------------------
 
+class Debouncer:
+    """
+    Coalesce rapid callbacks into one (e.g. a refresh per keystroke in a
+    search box -> a single refresh 250ms after the last key). Searching
+    rebuilds whole tables, so per-character refreshes are what made the
+    UI feel laggy while typing.
+    """
+
+    def __init__(self, widget, delay_ms: int = 250):
+        self._widget = widget
+        self._delay = delay_ms
+        self._job = None
+
+    def call(self, fn, *args) -> None:
+        self.cancel()
+        self._job = self._widget.after(
+            self._delay, lambda: self._run(fn, *args))
+
+    def _run(self, fn, *args) -> None:
+        self._job = None
+        fn(*args)
+
+    def cancel(self) -> None:
+        if self._job is not None:
+            try:
+                self._widget.after_cancel(self._job)
+            except Exception:
+                pass
+            self._job = None
+
+
 def rtl_side(app, normal: str = "left") -> str:
     """Pack side flipped in Arabic (RTL mirror)."""
     return "right" if getattr(app, "lang", "fr") == "ar" else normal

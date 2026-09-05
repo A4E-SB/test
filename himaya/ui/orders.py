@@ -66,7 +66,9 @@ class OrdersPage(ctk.CTkFrame):
         ctk.CTkEntry(filters, textvariable=self.f_query, width=200,
                      placeholder_text=app.t("search"),
                      height=32).pack(side="left", padx=4, pady=8)
-        self.f_query.trace_add("write", lambda *_: self.refresh())
+        # debounced: one refresh after typing pauses, not one per keystroke
+        self._search_deb = W.Debouncer(self, 250)
+        self.f_query.trace_add("write", lambda *_: self._search_deb.call(self.refresh))
         ctk.CTkLabel(filters, text=app.t("ord_from"), font=F(11),
                      text_color=config.COLOR_FG_DIM).pack(side="left", padx=(10, 2))
         self.f_from = ctk.CTkEntry(filters, width=95, height=32, placeholder_text="2025-01-01")

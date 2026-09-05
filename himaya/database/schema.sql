@@ -67,6 +67,10 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status  ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_date    ON orders(date);
+-- v1.1.4: per-wilaya stats/filters column (present since v1).
+-- NOTE: idx_orders_product is created AFTER migrations in db.py — the
+-- product_id column only exists once a v1 database has been upgraded.
+CREATE INDEX IF NOT EXISTS idx_orders_wilaya ON orders(wilaya);
 
 -- ---------------------------------------------------------------------------
 -- Blacklist: known bad phone numbers (shared between sellers via .hma files).
