@@ -11,7 +11,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..models import settings_store
-from .widgets import F, HimayaDialog, center
+from .widgets import F, HimayaDialog, center, fit_geometry
 
 
 class TourDialog(HimayaDialog):
@@ -22,7 +22,7 @@ class TourDialog(HimayaDialog):
         self.app = app
         self.title("Himaya")
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("520x400")
+        fit_geometry(self, 520, 400)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 
@@ -66,10 +66,11 @@ class PasswordGate(HimayaDialog):
         self.app = app
         self.title("Himaya 🔒")
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("380x220")
+        fit_geometry(self, 380, 220)
         self.resizable(False, False)
         self.transient(master)
         self.protocol("WM_DELETE_WINDOW", lambda: None)   # must unlock
+        self.unbind("<Escape>")                            # ...and no Esc out
 
         ctk.CTkLabel(self, text="🔒", font=F(34)).pack(pady=(24, 4))
         ctk.CTkLabel(self, text=app.t("sec_enter_pw"), font=F(14, "bold")

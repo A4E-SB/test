@@ -254,8 +254,11 @@ class OrderDialog(HimayaDialog):
         editing = order_id is not None
         self.title(self.app.t("edit" if editing else "ord_new"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("480x730")
-        self.resizable(False, False)
+        # v1.4.2: fit the screen (DPI-aware) + let the user resize; the form
+        # scrolls, and Save/Cancel can never end up below the screen edge.
+        W.fit_geometry(self, 480, 730)
+        self.resizable(True, True)
+        self.minsize(460, 430)
         self.transient(master.winfo_toplevel())
 
         # ---- bottom bar (OUTSIDE the scroll area: always visible) -----------

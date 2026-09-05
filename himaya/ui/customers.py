@@ -19,7 +19,7 @@ from ..models import orders as orders_model
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
 from . import widgets as W
-from .widgets import (F, HimayaDialog, TrustBadge, EmptyState, make_tree,
+from .widgets import (F, HimayaDialog, fit_geometry, TrustBadge, EmptyState, make_tree,
                       tags_frame, trust_badge_text)
 from .widgets import card as surface
 
@@ -285,7 +285,7 @@ class CustomerDialog(HimayaDialog):
         editing = customer_id is not None
         self.title(self.app.t("edit" if editing else "cust_add"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("440x520")
+        fit_geometry(self, 440, 520)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 

@@ -71,8 +71,11 @@ class HimayaApp(ctk.CTk):
         self._unlocked = False                # set by the password gate
 
         self.title(t("app_title", self.lang))
-        self.geometry("1280x760")
-        self.minsize(1150, 700)
+        fitted = W.fit_geometry(self, 1280, 760, margin=60)
+        if fitted:                       # never insist on more than the screen
+            self.minsize(min(1150, fitted[0]), min(700, fitted[1]))
+        else:
+            self.minsize(1150, 700)
         try:
             ico = config.ASSETS_DIR / "icon.ico"
             if ico.exists():

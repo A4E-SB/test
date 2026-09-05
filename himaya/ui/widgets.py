@@ -458,6 +458,35 @@ class FunnelChart(ctk.CTkCanvas):
 
 
 # ---------------------------------------------------------------------------
+# Screen-aware window sizing (v1.4.2)
+# ---------------------------------------------------------------------------
+
+def fit_geometry(win, w: int, h: int, margin: int = 90):
+    """
+    Size a window so it ALWAYS fits the screen.
+
+    CustomTkinter multiplies geometry by the Windows display-scaling factor:
+    on a 150% laptop, "480x730" is really 720x1095 px — taller than the
+    screen, so the bottom buttons (Save/Cancel) sit below the visible area
+    and no amount of scrolling can reach them (v1.4.2 bug). Returns the
+    fitted (w, h) in CTk units, or None if even the screen query failed.
+    """
+    try:
+        scale = ctk.ScalingTracker.get_window_scaling(win)
+        max_w = int(win.winfo_screenwidth() / scale) - 40
+        max_h = int(win.winfo_screenheight() / scale) - margin
+        fitted = (max(280, min(w, max_w)), max(300, min(h, max_h)))
+        win.geometry(f"{fitted[0]}x{fitted[1]}")
+        return fitted
+    except Exception:
+        try:
+            win.geometry(f"{w}x{h}")
+        except Exception:
+            pass
+        return None
+
+
+# ---------------------------------------------------------------------------
 # HimayaDialog (v1.3.1): ONE safe base for every popup in the app.
 #
 # Two Windows-specific failure modes it kills:
@@ -501,6 +530,7 @@ class HimayaDialog(ctk.CTkToplevel):
         super().__init__(master, **kwargs)
         self._closed = False
         self.protocol("WM_DELETE_WINDOW", self.close)
+        self.bind("<Escape>", lambda _e: self.close())
         self.after(120, self._safe_grab)
 
     def _safe_grab(self) -> None:
@@ -649,7 +679,7 @@ class ScamAlert(HimayaDialog):
         color = config.COLOR_RED if danger else config.COLOR_ORANGE
         self.title("Himaya")
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("480x420")
+        fit_geometry(self, 480, 420)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 

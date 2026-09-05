@@ -407,6 +407,56 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.4.2: windows must fit the screen (DPI-aware) --------------------
+    from himaya.ui import widgets as _W2
+    from himaya.ui.widgets import fit_geometry as _fg
+
+    class _FakeScale:
+        @staticmethod
+        def get_window_scaling(win):
+            return _FakeScale.v
+    _W2.ctk.ScalingTracker = _FakeScale
+
+    class _Win:
+        def __init__(self, w, h):
+            self._sz, self.calls = (w, h), []
+        def winfo_screenwidth(self):
+            return self._sz[0]
+        def winfo_screenheight(self):
+            return self._sz[1]
+        def geometry(self, g):
+            self.calls.append(g)
+
+    # 1366x768 laptop at 125%: 730-unit window would be 912px -> must clamp
+    _FakeScale.v = 1.25
+    w = _Win(1366, 768)
+    assert _fg(w, 480, 730) == (480, 524), _fg(w, 480, 730)
+    assert w.calls == ["480x524"]
+    # big screen at 100%: unchanged
+    _FakeScale.v = 1.0
+    w = _Win(1920, 1080)
+    assert _fg(w, 480, 730) == (480, 730)
+    # tiny screen at 150%: never below the sane floor
+    _FakeScale.v = 1.5
+    w = _Win(1024, 600)
+    fitted = _fg(w, 480, 730)
+    assert fitted == (480, 310), fitted   # width fits; height clamps to 310
+    print("  ✓ fit_geometry: clamps to screen, DPI-aware, sane floor")
+
+    # no dialog may size itself with a raw geometry() call anymore
+    import subprocess
+    raw = subprocess.run(["grep", "-rn", r'self\.geometry("', "himaya/ui/"],
+                         capture_output=True, text=True).stdout.strip()
+    assert not raw, f"raw self.geometry() found (use fit_geometry):\n{raw}"
+    _orders_src = Path("himaya/ui/orders.py").read_text(encoding="utf-8")
+    assert "fit_geometry(self, 480, 730)" in _orders_src
+    assert "self.resizable(True, True)" in _orders_src
+    _w_src = Path("himaya/ui/widgets.py").read_text(encoding="utf-8")
+    assert 'self.bind("<Escape>", lambda _e: self.close())' in _w_src
+    assert 'self.unbind("<Escape>")' in Path("himaya/ui/tour.py").read_text(
+        encoding="utf-8")
+    print("  ✓ every window screen-fitted; Esc closes dialogs (not the lock)")
+
     # ---- v1.4.1: CTk constructor kwargs lint (the 'empty order window'
     # bug was CTkComboBox(textvariable=...) — not a CTk argument, CTk raises
     # ValueError mid-build; stubs could never see it) -------------------------

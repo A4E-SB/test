@@ -15,7 +15,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..models import products as products_model
-from .widgets import F, HimayaDialog, make_tree, rtl_anchor, rtl_side
+from .widgets import F, HimayaDialog, fit_geometry, make_tree, rtl_anchor, rtl_side
 from .widgets import bind_tree_tooltips, card as surface
 
 
@@ -133,7 +133,7 @@ class ProductDialog(HimayaDialog):
         editing = product_id is not None
         self.title(self.app.t("edit" if editing else "prod_add"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("420x330")
+        fit_geometry(self, 420, 330)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 

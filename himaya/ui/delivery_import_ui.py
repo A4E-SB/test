@@ -12,7 +12,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..services import delivery_import
-from .widgets import F, HimayaDialog, center
+from .widgets import F, HimayaDialog, center, fit_geometry
 
 
 class ImportStatusesDialog(HimayaDialog):
@@ -23,7 +23,7 @@ class ImportStatusesDialog(HimayaDialog):
         self.updates: list[dict] = []
         self.title(app.t("dim_title"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("640x520")
+        fit_geometry(self, 640, 520)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 

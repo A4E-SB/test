@@ -15,7 +15,7 @@ from ..models import orders as orders_model
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
 from . import widgets as W
-from .widgets import F, HimayaDialog, center
+from .widgets import F, HimayaDialog, center, fit_geometry
 
 
 class BulkEditDialog(HimayaDialog):
@@ -26,7 +26,7 @@ class BulkEditDialog(HimayaDialog):
         self.on_done = on_done
         self.title(app.t("me_title") + f" ({len(order_ids)})")
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("440x380")
+        fit_geometry(self, 440, 380)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 

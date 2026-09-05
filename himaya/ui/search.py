@@ -11,7 +11,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..i18n import t
-from .widgets import F, HimayaDialog, center, make_tree
+from .widgets import F, HimayaDialog, center, fit_geometry, make_tree
 
 
 class GlobalSearchDialog(HimayaDialog):
@@ -20,7 +20,7 @@ class GlobalSearchDialog(HimayaDialog):
         self.app = app
         self.title(app.t("gs_title"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("640x480")
+        fit_geometry(self, 640, 480)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 

@@ -11,7 +11,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..services import quick_parse
-from .widgets import F, HimayaDialog, center
+from .widgets import F, HimayaDialog, center, fit_geometry
 
 
 def ask_line(master, app) -> dict | None:
@@ -33,7 +33,7 @@ class QuickAddDialog(HimayaDialog):
         self.result: dict | None = None
         self.title(app.t("qa_title"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("520x300")
+        fit_geometry(self, 520, 300)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 
@@ -89,7 +89,7 @@ class _TextDialog(HimayaDialog):
         self.result = None
         self.title(title)
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("420x170")
+        fit_geometry(self, 420, 170)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
         ctk.CTkLabel(self, text=title, font=F(15, "bold")).pack(pady=(16, 4))

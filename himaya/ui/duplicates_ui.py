@@ -10,7 +10,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..services import duplicates
-from .widgets import F, HimayaDialog, center
+from .widgets import F, HimayaDialog, center, fit_geometry
 
 
 class DuplicatesDialog(HimayaDialog):
@@ -20,7 +20,7 @@ class DuplicatesDialog(HimayaDialog):
         self.on_merged = on_merged
         self.title(app.t("dup_title"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("700x520")
+        fit_geometry(self, 700, 520)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
 
