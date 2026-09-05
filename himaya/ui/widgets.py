@@ -113,10 +113,11 @@ def make_tree(master, columns: list[tuple[str, str, int]], rid: bool = False,
                         style="Himaya.Treeview", selectmode="extended")
     for cid, heading, width in columns:
         tree.heading(cid, text=heading)
-        # minsize = declared width: extra window space stretches the last
+        # minwidth = declared width: extra window space stretches the last
         # columns, but a smaller window NEVER squeezes a column under its
-        # content width (hard clipping was the v1.1 bug)
-        tree.column(cid, width=width, minsize=width, anchor="w", stretch=True)
+        # content width (hard clipping was the v1.1 bug). ttk's option is
+        # MINWIDTH — 'minsize' is a grid option and raises TclError.
+        tree.column(cid, width=width, minwidth=width, anchor="w", stretch=True)
     # row color tags
     tree.tag_configure("danger", foreground=config.COLOR_RED)
     tree.tag_configure("caution", foreground=config.COLOR_YELLOW)

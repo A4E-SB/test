@@ -160,15 +160,56 @@ def lint_init_order() -> list[str]:
     return problems
 
 
+
+
+# ---------------------------------------------------------------------------
+# v1.2.2: ttk option lint — validates option NAMES passed to Treeview
+# .column()/.heading()/.tag_configure() against the documented ttk sets.
+# Real tkinter isn't importable headless, so the stubs can't reject bad
+# option names (the v1.2.1 crash: 'minsize' -> TclError at first table).
+# ---------------------------------------------------------------------------
+
+_TTK_COLUMN_OPTS = {"id", "anchor", "minwidth", "stretch", "width"}
+_TTK_HEADING_OPTS = {"text", "image", "command", "anchor", "state"}
+
+
+def lint_ttk_options() -> list[str]:
+    import ast
+    problems: list[str] = []
+    for path in sorted(Path("himaya").rglob("*.py")):
+        if "ui" not in path.parts:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("column", "heading")):
+                continue
+            receiver = node.func.value
+            if not (isinstance(receiver, ast.Attribute)
+                    and receiver.attr in ("tree", "tv", "listbox")) and not (
+                    isinstance(receiver, ast.Name) and receiver.id == "tree"):
+                continue
+            allowed = (_TTK_COLUMN_OPTS if node.func.attr == "column"
+                       else _TTK_HEADING_OPTS)
+            for kw in node.keywords:
+                if kw.arg and kw.arg not in allowed:
+                    problems.append(
+                        f"{path}:{node.lineno} .{node.func.attr}() bad option "
+                        f"'{kw.arg}' (allowed: {sorted(allowed)})")
+    return problems
+
+
 def main() -> int:
-    # ---- init-order lint FIRST: runs on real source, no stubs ----------
-    problems = lint_init_order()
+    # ---- static lints FIRST: run on real source, no stubs ----------------
+    problems = lint_init_order() + lint_ttk_options()
     for pr in problems:
         print("  ✗ " + pr)
     if problems:
-        print(f"UI SMOKE TEST: {len(problems)} init-order bug(s)")
+        print(f"UI SMOKE TEST: {len(problems)} static lint bug(s)")
         return 1
     print("  ✓ init-order lint: no self.X read before assignment (v1.2.1)")
+    print("  ✓ ttk option lint: .column()/.heading() options all valid (v1.2.2)")
     install_stubs()
 
     # force a temp data dir so nothing touches a real profile
