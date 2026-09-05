@@ -370,15 +370,51 @@ def main() -> int:
         "ask_line must wait for the user and return the parsed fields"
     print("  ✓ quick-add ask_line waits & returns the fields (v1.2.3)")
 
-    # ---- dialog constructors (no save() calls) -----------------------------
+    # ---- dialog constructors + safe-dialog behavior (v1.3.1) ----------------
     from himaya.ui.customers import CustomerDialog
     from himaya.ui.orders import OrderDialog
+    from himaya.ui.widgets import HimayaDialog
+    from himaya.ui.products import ProductDialog
+    from himaya.ui.quick_add import QuickAddDialog
+    from himaya.ui.bulk_edit import BulkEditDialog
+    from himaya.ui.duplicates_ui import DuplicatesDialog
+    from himaya.ui.search import GlobalSearchDialog
+    from himaya.ui.tour import TourDialog, PasswordGate
+    from himaya.ui.widgets import ScamAlert
+    for cls in (CustomerDialog, OrderDialog, ProductDialog, QuickAddDialog,
+                BulkEditDialog, DuplicatesDialog, GlobalSearchDialog,
+                TourDialog, PasswordGate, ScamAlert):
+        assert issubclass(cls, HimayaDialog), \
+            f"{cls.__name__} must use the safe HimayaDialog base"
+    print("  ✓ all 10 dialogs on the HimayaDialog base (v1.3.1)")
+
     dlg = CustomerDialog(app, app)
     print("  ✓ CustomerDialog")
-    dlg.destroy()
+    # behavioral: close() must release the modal grab BEFORE destroying,
+    # and must be idempotent (X + Cancel + double-click safe)
+    order = []
+    dlg.winfo_exists = lambda: True   # stub default is falsy; real tk: True
+    dlg.grab_release = lambda: order.append("release")
+    dlg.destroy = lambda: order.append("destroy")
+    dlg._closed = False
+    dlg.close()
+    dlg.close()
+    assert order == ["release", "destroy"], f"close() sequence wrong: {order}"
+    print("  ✓ close(): grab released before destroy, idempotent")
+
     dlg2 = OrderDialog(app, app)
     print("  ✓ OrderDialog")
-    dlg2.destroy()
+    dlg2.close()
+
+    # source-level guarantee: no dialog grabs directly (deferred grab only)
+    import subprocess
+    bad = subprocess.run(
+        ["grep", "-rn", r"self\.grab_set()", "himaya/ui/"],
+        capture_output=True, text=True).stdout.strip()
+    assert "widgets.py" in bad and bad.count(":") >= 1 and \
+        all("widgets.py" in line for line in bad.splitlines()), \
+        f"raw grab_set() outside the safe base:\n{bad}"
+    print("  ✓ no raw grab_set() outside HimayaDialog")
 
     # ---- scam alert popup ----------------------------------------------------
     from himaya.services.phone import phone_risk

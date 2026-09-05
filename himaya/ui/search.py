@@ -11,10 +11,10 @@ import customtkinter as ctk
 
 from .. import config
 from ..i18n import t
-from .widgets import F, center, make_tree
+from .widgets import F, HimayaDialog, center, make_tree
 
 
-class GlobalSearchDialog(ctk.CTkToplevel):
+class GlobalSearchDialog(HimayaDialog):
     def __init__(self, master, app):
         super().__init__(master)
         self.app = app
@@ -23,7 +23,6 @@ class GlobalSearchDialog(ctk.CTkToplevel):
         self.geometry("640x480")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=app.t("gs_title"), font=F(16, "bold")
                      ).pack(pady=(14, 4))
@@ -33,7 +32,7 @@ class GlobalSearchDialog(ctk.CTkToplevel):
         entry.pack(padx=20)
         entry.focus_set()
         self.query.trace_add("write", lambda *_: self.search())
-        self.bind("<Escape>", lambda e: self.destroy())
+        self.bind("<Escape>", lambda e: self.close())
 
         cols = [("kind", "", 110), ("main", app.t("name"), 220),
                 ("sub", app.t("phone"), 150), ("extra", "", 130)]
@@ -112,7 +111,7 @@ class GlobalSearchDialog(ctk.CTkToplevel):
         page, row_id = self._results.get(sel[0], (None, None))
         if not page:
             return
-        self.destroy()
+        self.close()
         self.app.show_page(page)
         target = self.app.page
         if page == "customers" and hasattr(target, "focus_customer"):

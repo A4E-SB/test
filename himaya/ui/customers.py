@@ -19,7 +19,7 @@ from ..models import orders as orders_model
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
 from . import widgets as W
-from .widgets import (F, TrustBadge, EmptyState, make_tree,
+from .widgets import (F, HimayaDialog, TrustBadge, EmptyState, make_tree,
                       tags_frame, trust_badge_text)
 from .widgets import card as surface
 
@@ -254,7 +254,6 @@ class CustomersPage(ctk.CTkFrame):
         dlg.configure(fg_color=config.COLOR_BG_2)
         dlg.geometry("420x200")
         dlg.transient(self.winfo_toplevel())
-        dlg.grab_set()
         ctk.CTkLabel(dlg, text=f"{self.app.t('cust_blacklist_btn')} : {cust['phone']}",
                      font=F(14, "bold")).pack(pady=(16, 6))
         reason = ctk.CTkEntry(dlg, width=340, placeholder_text=self.app.t("cust_blacklist_prompt"))
@@ -275,7 +274,7 @@ class CustomersPage(ctk.CTkFrame):
                       command=do_it).pack(pady=8)
 
 
-class CustomerDialog(ctk.CTkToplevel):
+class CustomerDialog(HimayaDialog):
     """Add / edit customer form with instant phone risk check."""
 
     def __init__(self, master, app, customer_id: int | None = None, on_saved=None):
@@ -289,7 +288,6 @@ class CustomerDialog(ctk.CTkToplevel):
         self.geometry("440x520")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=self.app.t("edit" if editing else "cust_add"),
                      font=F(18, "bold")).pack(pady=(16, 4))
@@ -378,7 +376,7 @@ class CustomerDialog(ctk.CTkToplevel):
                                              notes=self.vars["notes"].get().strip())
                 trust.refresh(self.app.db, cid)
                 self.app.toast(self.app.t("cust_added"), "ok")
-            self.destroy()
+            self.close()
             if self.on_saved:
                 self.on_saved()
 

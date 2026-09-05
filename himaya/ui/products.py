@@ -15,7 +15,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..models import products as products_model
-from .widgets import F, make_tree, rtl_anchor, rtl_side
+from .widgets import F, HimayaDialog, make_tree, rtl_anchor, rtl_side
 from .widgets import bind_tree_tooltips, card as surface
 
 
@@ -122,7 +122,7 @@ class ProductsPage(ctk.CTkFrame):
         self.tree.see(str(pid))
 
 
-class ProductDialog(ctk.CTkToplevel):
+class ProductDialog(HimayaDialog):
     """Create / edit a catalog product."""
 
     def __init__(self, master, app, product_id: int | None = None, on_saved=None):
@@ -136,7 +136,6 @@ class ProductDialog(ctk.CTkToplevel):
         self.geometry("420x330")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=self.app.t("edit" if editing else "prod_add"),
                      font=F(18, "bold")).pack(pady=(14, 4))
@@ -197,6 +196,6 @@ class ProductDialog(ctk.CTkToplevel):
             products_model.create(db, self.name.get().strip(), cost_price=cost,
                                   sale_price=sale, quantity=qty, low_stock=low)
         self.app.toast(self.app.t("prod_saved"), "ok")
-        self.destroy()
+        self.close()
         if self.on_saved:
             self.on_saved()

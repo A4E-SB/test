@@ -18,7 +18,7 @@ from ..models import settings_store
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
 from . import widgets as W
-from .widgets import F, make_tree, row_tag
+from .widgets import F, HimayaDialog, make_tree, row_tag
 
 
 class OrdersPage(ctk.CTkFrame):
@@ -241,7 +241,7 @@ class OrdersPage(ctk.CTkFrame):
         self.tree.see(str(oid))
 
 
-class OrderDialog(ctk.CTkToplevel):
+class OrderDialog(HimayaDialog):
     """Create / edit an order, with live phone risk check + block flow."""
 
     def __init__(self, master, app, order_id: int | None = None, on_saved=None):
@@ -256,7 +256,6 @@ class OrderDialog(ctk.CTkToplevel):
         self.geometry("470x700")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=self.app.t("edit" if editing else "ord_new"),
                      font=F(18, "bold")).pack(pady=(14, 2))
@@ -358,7 +357,7 @@ class OrderDialog(ctk.CTkToplevel):
         btns.pack(fill="x", padx=24, pady=10)
         ctk.CTkButton(btns, text=app.t("cancel"), fg_color="transparent",
                       text_color=config.COLOR_FG_DIM, border_width=1,
-                      command=self.destroy).pack(side="right", padx=4)
+                      command=self.close).pack(side="right", padx=4)
         ctk.CTkButton(btns, text=app.t("save"), width=120,
                       command=self.save).pack(side="right", padx=4)
 
@@ -480,7 +479,7 @@ class OrderDialog(ctk.CTkToplevel):
                                     notes=self.notes.get().strip(),
                                     product_id=product_id, deposit=dep)
             trust.refresh(db, cid)
-            self.destroy()
+            self.close()
             if self.on_saved:
                 self.on_saved()
 
@@ -494,7 +493,7 @@ class OrderDialog(ctk.CTkToplevel):
                                     product_id=product_id, deposit=dep)
                 trust.refresh(db, cid)
                 self.app.toast(self.app.t("ord_blocked_saved"), "ok")
-                self.destroy()
+                self.close()
                 if self.on_saved:
                     self.on_saved()
             else:

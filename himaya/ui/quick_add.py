@@ -11,7 +11,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..services import quick_parse
-from .widgets import F, center
+from .widgets import F, HimayaDialog, center
 
 
 def ask_line(master, app) -> dict | None:
@@ -26,7 +26,7 @@ def ask_line(master, app) -> dict | None:
     return dialog.result
 
 
-class QuickAddDialog(ctk.CTkToplevel):
+class QuickAddDialog(HimayaDialog):
     def __init__(self, master, app):
         super().__init__(master)
         self.app = app
@@ -36,7 +36,6 @@ class QuickAddDialog(ctk.CTkToplevel):
         self.geometry("520x300")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=app.t("qa_title"), font=F(17, "bold")).pack(pady=(16, 2))
         ctk.CTkLabel(self, text=app.t("qa_hint"), font=F(11),
@@ -70,4 +69,4 @@ class QuickAddDialog(ctk.CTkToplevel):
             self.app.toast(self.app.t("invalid_phone"), "warn")
             return
         self.result = parsed
-        self.destroy()
+        self.close()

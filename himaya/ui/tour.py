@@ -11,10 +11,10 @@ import customtkinter as ctk
 
 from .. import config
 from ..models import settings_store
-from .widgets import F, center
+from .widgets import F, HimayaDialog, center
 
 
-class TourDialog(ctk.CTkToplevel):
+class TourDialog(HimayaDialog):
     """Welcome popup on first launch: mini-tour + demo-data offer."""
 
     def __init__(self, master, app):
@@ -25,7 +25,6 @@ class TourDialog(ctk.CTkToplevel):
         self.geometry("520x400")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=app.t("tour_welcome"), font=F(22, "bold"),
                      text_color=config.COLOR_ACCENT).pack(pady=(22, 8))
@@ -48,18 +47,18 @@ class TourDialog(ctk.CTkToplevel):
 
     def _start_empty(self) -> None:
         self._mark_done()
-        self.destroy()
+        self.close()
 
     def _load_demo(self) -> None:
         from ..services.demo import load_demo
         load_demo(self.app.db)
         self._mark_done()
-        self.destroy()
+        self.close()
         self.app.toast(self.app.t("demo_loaded"), "ok")
         self.app.show_page("dashboard")
 
 
-class PasswordGate(ctk.CTkToplevel):
+class PasswordGate(HimayaDialog):
     """Modal lock screen: asks for the app password before showing data."""
 
     def __init__(self, master, app):
@@ -71,7 +70,6 @@ class PasswordGate(ctk.CTkToplevel):
         self.resizable(False, False)
         self.transient(master)
         self.protocol("WM_DELETE_WINDOW", lambda: None)   # must unlock
-        self.grab_set()
 
         ctk.CTkLabel(self, text="🔒", font=F(34)).pack(pady=(24, 4))
         ctk.CTkLabel(self, text=app.t("sec_enter_pw"), font=F(14, "bold")
@@ -93,7 +91,7 @@ class PasswordGate(ctk.CTkToplevel):
         from ..services import security
         if security.verify_password(self.app.db, self.pw.get()):
             self.app._unlocked = True
-            self.destroy()
+            self.close()
             # resume background page pre-building (paused behind the lock)
             self.app._prebuilding_off = False
             self.app.after(400, self.app._prebuild_pages)

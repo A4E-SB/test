@@ -456,6 +456,51 @@ class FunnelChart(ctk.CTkCanvas):
 
 
 # ---------------------------------------------------------------------------
+# HimayaDialog (v1.3.1): ONE safe base for every popup in the app.
+#
+# Two Windows-specific failure modes it kills:
+#  1. grab_set() in __init__ can race the window mapping -> TclError
+#     mid-construction -> a half-built ("empty") dialog with dead buttons.
+#     -> grab is DEFERRED until the window exists, and never fatal.
+#  2. destroy() on a window that holds the modal grab can leave the grab
+#     stuck -> the app ignores every click ("window won't close, app
+#     bugged"). -> close() releases the grab BEFORE destroying, and is
+#     idempotent (X then Cancel, double-clicks, Esc, all safe).
+# ---------------------------------------------------------------------------
+
+class HimayaDialog(ctk.CTkToplevel):
+    """Modal popup base: deferred safe grab + explicit safe close."""
+
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self._closed = False
+        self.protocol("WM_DELETE_WINDOW", self.close)
+        self.after(120, self._safe_grab)
+
+    def _safe_grab(self) -> None:
+        try:
+            if self.winfo_exists():
+                self.grab_set()
+        except Exception:
+            pass   # grab is a convenience, never a crash
+
+    def close(self) -> None:
+        """The ONE exit path: release the modal grab, then destroy."""
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            if self.winfo_exists():
+                self.grab_release()
+        except Exception:
+            pass
+        try:
+            self.destroy()
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Empty state (v1.2): icon + short message instead of a bare dash
 # ---------------------------------------------------------------------------
 
@@ -545,7 +590,7 @@ def bind_tree_tooltips(tree) -> None:
 # Scam alert popup
 # ---------------------------------------------------------------------------
 
-class ScamAlert(ctk.CTkToplevel):
+class ScamAlert(HimayaDialog):
     """
     Red modal popup shown whenever a risky phone number is detected.
     on_block / on_continue are optional callbacks (used by the order dialog).
@@ -563,7 +608,6 @@ class ScamAlert(ctk.CTkToplevel):
         self.geometry("480x420")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=t("scam_alert", lang), text_color=color,
                      font=F(22, "bold")).pack(pady=(18, 4))
@@ -608,8 +652,7 @@ class ScamAlert(ctk.CTkToplevel):
                       command=lambda: self._close(None)).pack(side="right")
 
     def _close(self, cb) -> None:
-        self.grab_release()
-        self.destroy()
+        self.close()   # HimayaDialog.close: grab released, idempotent
         if cb:
             cb()
 

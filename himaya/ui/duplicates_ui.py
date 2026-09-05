@@ -10,10 +10,10 @@ import customtkinter as ctk
 
 from .. import config
 from ..services import duplicates
-from .widgets import F, center
+from .widgets import F, HimayaDialog, center
 
 
-class DuplicatesDialog(ctk.CTkToplevel):
+class DuplicatesDialog(HimayaDialog):
     def __init__(self, master, app, on_merged=None):
         super().__init__(master)
         self.app = app
@@ -23,7 +23,6 @@ class DuplicatesDialog(ctk.CTkToplevel):
         self.geometry("700x520")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text="👥 " + app.t("dup_title"), font=F(17, "bold")
                      ).pack(pady=(14, 2))
