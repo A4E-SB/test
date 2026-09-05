@@ -168,6 +168,17 @@ def main() -> int:
     print("  ✓ HimayaApp constructed")
     assert app.dnd_enabled is True, "dnd stub require() should have succeeded"
 
+    # v1.1.1 regression: sidebar and content frame must NEVER share a grid
+    # column (v1.1.0 put both on the same one -> sidebar hidden behind pages)
+    for lang in ("fr", "en", "ar"):
+        app.lang = lang
+        app._apply_rtl()
+        assert app._side_col != app._main_col, f"columns overlap in {lang}"
+        assert app._main_col == (0 if lang == "ar" else 1), f"main col wrong in {lang}"
+    app.lang = "fr"
+    app._apply_rtl()
+    print("  ✓ layout columns distinct in fr/en/ar (v1.1.1 fix)")
+
     for name, _label, _icon in PAGES:
         app.show_page(name)
         print(f"  ✓ page: {name}")

@@ -77,14 +77,12 @@ class HimayaApp(ctk.CTk):
         except Exception:
             pass
 
-        self.grid_columnconfigure(0, weight=0)
-        self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
         self._apply_rtl()
         self._build_sidebar()
         self.main = ctk.CTkFrame(self, fg_color=config.COLOR_BG, corner_radius=0)
-        self.main.grid(row=0, column=1 if self.lang == "ar" else 0,
+        self.main.grid(row=0, column=self._main_col,
                        sticky="nsew", padx=0, pady=0)
         self.main.grid_columnconfigure(0, weight=1)
         self.main.grid_rowconfigure(0, weight=1)
@@ -105,10 +103,25 @@ class HimayaApp(ctk.CTk):
 
     # ------------------------------------------------------------------ layout
 
+    # Layout columns — LTR: sidebar 0 / content 1, RTL (Arabic): mirrored.
+    # Single source of truth so the two frames can NEVER share a cell
+    # (v1.1.0 regression: both gridded on the same column -> the content
+    # frame covered the sidebar completely).
+    @property
+    def _side_col(self) -> int:
+        return 1 if self.rtl else 0
+
+    @property
+    def _main_col(self) -> int:
+        return 0 if self.rtl else 1
+
     def _apply_rtl(self) -> None:
         """Remember the layout direction: Arabic mirrors the whole window
-        (sidebar on the right, anchors flipped on every page)."""
+        (sidebar on the right, anchors flipped on every page). Also sets
+        which column stretches (the content one) in each direction."""
         self._rtl = self.lang == "ar"
+        self.grid_columnconfigure(self._main_col, weight=1)
+        self.grid_columnconfigure(self._side_col, weight=0)
 
     @property
     def rtl(self) -> bool:
@@ -117,7 +130,7 @@ class HimayaApp(ctk.CTk):
     def _build_sidebar(self) -> None:
         self.sidebar = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=0,
                                     width=230)
-        self.sidebar.grid(row=0, column=1 if self.rtl else 0,
+        self.sidebar.grid(row=0, column=self._side_col,
                           sticky="nse" if self.rtl else "nsw")
         self.sidebar.grid_propagate(False)
         self.sidebar.grid_rowconfigure(len(PAGES) + 3, weight=1)
@@ -240,7 +253,7 @@ class HimayaApp(ctk.CTk):
         self._nav_buttons.clear()
         self._apply_rtl()
         # re-grid main frame on the correct side of the mirrored layout
-        self.main.grid(row=0, column=1 if self.rtl else 0, sticky="nsew")
+        self.main.grid(row=0, column=self._main_col, sticky="nsew")
         self._build_sidebar()
         self.show_page(self.page_name or "dashboard")
 

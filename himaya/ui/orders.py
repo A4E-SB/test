@@ -36,6 +36,17 @@ class OrdersPage(ctk.CTkFrame):
         ctk.CTkButton(top, text=app.t("ord_new"), height=36, fg_color=config.COLOR_GREEN,
                       hover_color="#27ae60",
                       command=self.new_order).pack(side="right")
+        # v1.1 actions live in the TOP toolbar — the bottom status bar is
+        # already full with the 12 status buttons (v1.1.0 clipped them)
+        ctk.CTkButton(top, text=app.t("dim_btn"), height=36, fg_color=config.COLOR_BG_2,
+                      hover_color=config.COLOR_BG_3,
+                      command=self.import_statuses).pack(side="right", padx=4)
+        ctk.CTkButton(top, text=app.t("me_btn"), height=36, fg_color=config.COLOR_BG_2,
+                      hover_color=config.COLOR_BG_3,
+                      command=self.bulk_edit).pack(side="right", padx=4)
+        ctk.CTkButton(top, text=app.t("man_btn"), height=36, fg_color=config.COLOR_BG_2,
+                      hover_color=config.COLOR_BG_3,
+                      command=self.make_manifest).pack(side="right", padx=4)
 
         # ---- filters ------------------------------------------------------------
         filters = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
@@ -89,7 +100,7 @@ class OrdersPage(ctk.CTkFrame):
         self.status_btns = []
         for s in config.ALL_STATUSES:
             color = config.STATUS_COLORS.get(s, config.COLOR_BG_3)
-            btn = ctk.CTkButton(bar, text=t(f"st_{s}", app.lang), height=26, width=96,
+            btn = ctk.CTkButton(bar, text=t(f"st_{s}", app.lang), height=26, width=88,
                                 fg_color=config.COLOR_BG_3, hover_color=color,
                                 text_color=color, font=F(10, "bold"),
                                 command=lambda st=s: self.set_status(st))
@@ -103,15 +114,6 @@ class OrdersPage(ctk.CTkFrame):
                       command=self.edit_order).pack(side="right", padx=4)
         ctk.CTkButton(bar, text="🖨️", height=26, width=44, fg_color=config.COLOR_BG_3,
                       command=self.print_labels).pack(side="right", padx=2)
-        ctk.CTkButton(bar, text=app.t("man_btn"), height=26, fg_color=config.COLOR_BG_3,
-                      hover_color=config.COLOR_BG,
-                      command=self.make_manifest).pack(side="right", padx=2)
-        ctk.CTkButton(bar, text=app.t("me_btn"), height=26, fg_color=config.COLOR_BG_3,
-                      hover_color=config.COLOR_BG,
-                      command=self.bulk_edit).pack(side="right", padx=2)
-        ctk.CTkButton(bar, text=app.t("dim_btn"), height=26, fg_color=config.COLOR_BG_3,
-                      hover_color=config.COLOR_BG,
-                      command=self.import_statuses).pack(side="right", padx=2)
         self.refresh()
 
     # ------------------------------------------------------------------
@@ -239,7 +241,7 @@ class OrderDialog(ctk.CTkToplevel):
         editing = order_id is not None
         self.title(self.app.t("edit" if editing else "ord_new"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("470x680")
+        self.geometry("470x700")
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
         self.grab_set()

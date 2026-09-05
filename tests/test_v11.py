@@ -284,6 +284,49 @@ def test_order_status_buttons_cover_new_status() -> None:
 
 # ---------------------------------------------------------------------------
 
+def test_v1_upgrade_migration(tmp: Path) -> None:
+    """A real v1.0.6 database (no products / product_id / deposit) upgrades
+    in place without losing data."""
+    print("[v1 -> v2 migration]")
+    import sqlite3
+    dbfile = tmp / "v1.db"
+    conn = sqlite3.connect(dbfile)
+    conn.executescript("""
+    CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, phone TEXT UNIQUE,
+      wilaya TEXT DEFAULT '', address TEXT DEFAULT '', notes TEXT DEFAULT '',
+      trust_score INTEGER DEFAULT 50, tags TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now','localtime')));
+    CREATE TABLE orders (id INTEGER PRIMARY KEY,
+      customer_id INTEGER REFERENCES customers(id), product TEXT, price REAL,
+      status TEXT DEFAULT 'pending', delivery_method TEXT DEFAULT '',
+      wilaya TEXT DEFAULT '', date TEXT DEFAULT (date('now')),
+      shipping_cost REAL DEFAULT 0, notes TEXT DEFAULT '',
+      shipped_at TEXT, delivered_at TEXT);
+    CREATE TABLE blacklist (id INTEGER PRIMARY KEY, phone TEXT UNIQUE, reason TEXT,
+      severity INTEGER DEFAULT 2, added_by TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now','localtime')));
+    CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+    """)
+    conn.execute("INSERT INTO customers(name, phone) VALUES('Old','0555999888')")
+    conn.execute("INSERT INTO orders(customer_id, product, price, status) "
+                 "VALUES(1,'Ancien',2500,'delivered')")
+    conn.commit()
+    conn.close()
+
+    db = Database(dbfile)                     # runs schema + migration
+    cols = {r[1] for r in db.conn.execute("PRAGMA table_info(orders)")}
+    check("v1 orders gained product_id + deposit",
+          {"product_id", "deposit"} <= cols)
+    check("user_version now 2",
+          db.conn.execute("PRAGMA user_version").fetchone()[0] == 2)
+    rows = db.query("SELECT * FROM orders")
+    check("old rows intact", len(rows) == 1 and rows[0]["deposit"] == 0)
+    pid = products.create(db, "New", cost_price=100, sale_price=200, quantity=5)
+    oid = orders.create(db, rows[0]["customer_id"], "New", 200,
+                        product_id=pid, deposit=50)
+    check("new order uses product + deposit", orders.get(db, oid)["deposit"] == 50)
+
+
 def main() -> int:
     import tempfile
     with tempfile.TemporaryDirectory() as td:
@@ -300,6 +343,9 @@ def main() -> int:
         test_detector_learning(tmp)
         test_demo_and_relance(tmp)
         test_order_status_buttons_cover_new_status()
+        import tempfile
+        with tempfile.TemporaryDirectory() as td2:
+            test_v1_upgrade_migration(Path(td2))
     print("=" * 50)
     print(f"{PASS} passed, {FAIL} failed")
     if FAILURES:
