@@ -25,6 +25,16 @@
 | 🔌 **Import / Export USB** | **Fichier `.hma`** : la liste noire officielle Himaya à partager sur clé USB entre vendeurs. Export/import des commandes CSV / Excel |
 | 🖨️ **Étiquettes** | PDF A6 (105×148) ou 100×100 avec niveau de risque coloré, code-barres, avertissements (« Appeler avant la livraison ») |
 | ⚙️ **Paramètres** | Langue FR/EN/AR, infos CCP/BaridiMob (pour les acomptes), société de livraison par défaut, sauvegarde/restauration, 58 wilayas intégrées |
+| 🛒 **Catalogue produits & stock** *(nouveau v1.1)* | Produits avec prix d'achat/vente et marge, stock automatique (bloqué par commande active, rendu si annulée), alertes stock bas, **profit réel** après coûts |
+| 💰 **Acomptes** *(nouveau v1.1)* | Suivi des avances avec le statut « attente acompte » ; l'étiquette imprime le **reste à payer** exact |
+| ⇩ **Import statuts livreur** *(nouveau v1.1)* | Chargez les exports CSV/Excel Yalidine / ZR / Maystro (ou collez « numéro ; statut ») — les commandes se mettent à jour en masse |
+| 👥 **Fusion de doublons** *(nouveau v1.1)* | Détecte la même personne derrière plusieurs SIM (nom + wilaya/adresse similaires) et fusionne l'historique en un clic |
+| 📊 **Stats par wilaya** *(nouveau v1.1)* | Taux de fantômes par wilaya avec conseil automatique « demandez un acompte ici », entonnoir des commandes, meilleurs clients avec messages de fidélité |
+| 🔔 **Centre de relance** *(nouveau v1.1)* | Commandes coincées en confirmée/expédiée + rappels AR/FR prêts à coller |
+| ⚡ **Ajout rapide** *(nouveau v1.1)* | Collez « Karim 0555123456 Sétif cite 200 » — nom/téléphone/wilaya/adresse se remplissent seuls |
+| 🧠 **Détecteur qui apprend** *(nouveau v1.1)* | Vos verdicts RÉEL/FAUX ajustent localement les poids de détection à votre marché |
+| 🔐 **Sécurité** *(nouveau v1.1)* | Mot de passe applicatif optionnel (PBKDF2), sauvegarde automatique tournante (5 copies) à la fermeture |
+| 🔎 **Recherche globale** *(nouveau v1.1)* | Ctrl+K cherche clients, commandes, liste noire et produits en même temps |
 
 L'interface est entièrement trilingue **Français ⇄ Anglais ⇄ Arabe (RTL)** en un clic.
 
@@ -32,7 +42,7 @@ L'interface est entièrement trilingue **Français ⇄ Anglais ⇄ Arabe (RTL)**
 
 ## ⬇️ Télécharger l'installateur (déjà compilé)
 
-➡️ **[Himaya-Setup-1.0.6.exe — dernière version](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+➡️ **[Himaya-Setup-1.1.0.exe — dernière version](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
 Un seul fichier (≈83 Mo) : double-cliquez, Suivant → Suivant → Terminé.
 Application + moteur Python + moteur OCR inclus, aucune connexion requise.
 
@@ -47,7 +57,7 @@ aucune connexion internet — fonctionne sur n'importe quel Windows 10/11
 L'installateur ajoute : raccourcis bureau + menu Démarrer, assistant en
 **français**, désinstalleur propre qui **demande** avant de toucher aux
 données (`%APPDATA%\Himaya`). Installation silencieuse en masse :
-`Himaya-Setup-1.0.6.exe /VERYSILENT /SUPPRESSMSGBOXES`
+`Himaya-Setup-1.1.0.exe /VERYSILENT /SUPPRESSMSGBOXES`
 
 ### Méthode A — sur votre PC Windows
 
@@ -60,13 +70,13 @@ build_installer.bat
 
 Le script fait tout : venv → dépendances → PyInstaller → récupération du moteur
 OCR (Tesseract, copié depuis votre PC ou téléchargé une fois au moment du
-build — jamais chez l'utilisateur final) → `installer\output\Himaya-Setup-1.0.6.exe`.
+build — jamais chez l'utilisateur final) → `installer\output\Himaya-Setup-1.1.0.exe`.
 
 ### Méthode B — compilé automatiquement sur GitHub (zéro PC requis)
 
 - Onglet **Actions** → *Build Windows installer* → **Run workflow** →
   téléchargez le `setup.exe` dans les *artifacts* ;
-- ou poussez un tag (`git tag v1.0.6 && git push origin v1.0.6`) : une
+- ou poussez un tag (`git tag v1.1.0 && git push origin v1.1.0`) : une
   **Release** est créée automatiquement avec l'installateur attaché.
 
 ---

@@ -75,8 +75,8 @@ COLOR_ORANGE = "#e67e22"      # warnings
 # Domain constants
 # --------------------------------------------------------------------------
 
-# Good statuses (order lifecycle)
-GOOD_STATUSES = ["pending", "confirmed", "shipped", "delivered", "paid"]
+# Good statuses (order lifecycle); waiting_deposit = acompte asked, not yet received
+GOOD_STATUSES = ["pending", "confirmed", "waiting_deposit", "shipped", "delivered", "paid"]
 # Bad statuses (money / time lost)
 BAD_STATUSES = ["ghosted", "refused", "phone_off", "fake_payment", "canceled"]
 # Special: order blocked before shipping because of a bad phone number
@@ -104,6 +104,7 @@ STATUS_COLORS = {
     "ghosted": COLOR_RED, "refused": COLOR_ORANGE,
     "phone_off": COLOR_ORANGE, "fake_payment": COLOR_RED,
     "canceled": COLOR_FG_DIM, "blocked": COLOR_RED,
+    "waiting_deposit": COLOR_YELLOW,
 }
 
 # Colors per auto tag

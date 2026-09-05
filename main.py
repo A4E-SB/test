@@ -40,7 +40,19 @@ def main(argv=None) -> int:
     # GUI imports are kept lazy so --init-only works on headless machines.
     from himaya.ui.app import HimayaApp
     app = HimayaApp(db)
-    app.protocol("WM_DELETE_WINDOW", lambda: (db.close(), app.destroy()))
+
+    def on_close() -> None:
+        """Rotating auto-backup (5 copies) before quitting, if enabled."""
+        try:
+            from himaya.services.security import auto_backup_enabled, backup_on_close
+            if auto_backup_enabled(db):
+                backup_on_close(db)
+        except Exception:
+            pass   # never block closing because of a backup hiccup
+        db.close()
+        app.destroy()
+
+    app.protocol("WM_DELETE_WINDOW", on_close)
     app.mainloop()
     return 0
 

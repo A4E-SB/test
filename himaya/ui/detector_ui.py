@@ -168,6 +168,27 @@ class DetectorPage(ctk.CTkFrame):
         self.save_btn.configure(state="normal")
         self.blacklist_btn.configure(state="normal")
 
+        # learning: the seller's verdict tunes the local reason weights
+        fb = ctk.CTkFrame(self.result, fg_color="transparent")
+        fb.pack(fill="x", padx=12, pady=(10, 2))
+        ctk.CTkLabel(fb, text="🧠", font=F(13)).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(fb, text=self.app.t("det_fb_real"), height=28,
+                      fg_color=config.COLOR_GREEN, hover_color="#27ae60",
+                      command=lambda: self.give_feedback("real")
+                      ).pack(side="left", padx=4)
+        ctk.CTkButton(fb, text=self.app.t("det_fb_fake"), height=28,
+                      fg_color=config.COLOR_RED, hover_color="#c0392b",
+                      command=lambda: self.give_feedback("fake")
+                      ).pack(side="left", padx=4)
+
+    def give_feedback(self, verdict: str) -> None:
+        """Remember the human verdict for the reasons that fired (local)."""
+        if not self.analysis:
+            return
+        detector.record_feedback(self.app.db,
+                                 self.analysis.get("reasons", []), verdict)
+        self.app.toast(self.app.t("det_learned"), "ok")
+
     # ------------------------------------------------------------------
 
     def save_evidence(self) -> None:

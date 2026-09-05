@@ -19,6 +19,7 @@ from .widgets import F, copy_to_clipboard, make_tree
 
 CATEGORY_KEYS = {"deposit": "tw_cat_deposit", "negotiation": "tw_cat_negotiation",
                  "ghost": "tw_cat_ghost", "warning": "tw_cat_warning",
+                 "loyalty": "tw_cat_loyalty",
                  "general": "tw_cat_general"}
 
 

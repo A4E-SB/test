@@ -20,9 +20,21 @@ class DashboardPage(ctk.CTkScrollableFrame):
         self.grid_columnconfigure((0, 1, 2, 3), weight=1)
         rtl = app.lang == "ar"
 
-        title = ctk.CTkLabel(self, text=app.t("nav_dashboard"), font=F(24, "bold"),
-                             anchor="e" if rtl else "w", justify="right" if rtl else "left")
-        title.grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=(4, 10))
+        title_row = ctk.CTkFrame(self, fg_color="transparent")
+        title_row.grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=(4, 6))
+        ctk.CTkLabel(title_row, text=app.t("nav_dashboard"), font=F(24, "bold"),
+                     anchor="e" if rtl else "w",
+                     justify="right" if rtl else "left").pack(side="left")
+        self.period_labels = {k: app.t(k) for k in
+                              ("dash_today", "dash_7d", "dash_30d", "dash_all")}
+        self.period = ctk.CTkSegmentedButton(
+            title_row, values=list(self.period_labels.values()),
+            command=lambda _v: self.refresh())
+        self.period.set(self.period_labels["dash_today"])
+        self.period.pack(side="right")
+
+        self._period_days = {"dash_today": 0, "dash_7d": 7,
+                             "dash_30d": 30, "dash_all": None}
 
         # ---- stat cards (all clickable -> jump to the relevant page) ---------
         go = self.app.show_page
@@ -99,9 +111,36 @@ class DashboardPage(ctk.CTkScrollableFrame):
 
     def refresh(self) -> None:
         db, lang = self.app.db, self.app.lang
-        self.card_orders.set(str(orders.count_today(db)))
-        self.card_shipped.set(str(orders.shipped_today(db)))
-        self.card_ghosts.set(str(orders.count_today(db, "ghosted")))
+
+        # ---- period-aware top cards ---------------------------------------
+        sel = "dash_all"
+        for key, label in self.period_labels.items():
+            if self.period.get() == label:
+                sel = key
+                break
+        days = self._period_days[sel]
+        if days is None:            # all time
+            n_new = db.scalar("SELECT COUNT(*) FROM orders") or 0
+            n_shipped = db.scalar(
+                "SELECT COUNT(*) FROM orders WHERE status = 'shipped'") or 0
+            n_ghost = db.scalar(
+                "SELECT COUNT(*) FROM orders WHERE status = 'ghosted'") or 0
+        elif days == 0:             # today
+            n_new = orders.count_today(db)
+            n_shipped = orders.shipped_today(db)
+            n_ghost = orders.count_today(db, "ghosted")
+        else:                       # last N days
+            n_new = orders.count_since(db, days, list(config.ALL_STATUSES))
+            n_shipped = orders.count_since(db, days, ["shipped"])
+            n_ghost = orders.count_since(db, days, ["ghosted"])
+        p_label = self.period_labels[sel]
+        self.card_orders.set(str(n_new),
+                             sub=self.app.t("dash_period_new", p=p_label)
+                             if sel != "dash_today" else "")
+        self.card_shipped.set(str(n_shipped))
+        self.card_ghosts.set(str(n_ghost),
+                             sub=self.app.t("dash_period_ghosts", p=p_label)
+                             if sel != "dash_today" else "")
         self.card_saved.set(config.fmt_money(orders.money_saved(db), lang))
         self.card_completion.set(f"{orders.completion_rate(db):.0f}%")
         self.card_lost.set(config.fmt_money(orders.total_lost(db), lang))
@@ -135,3 +174,16 @@ class DashboardPage(ctk.CTkScrollableFrame):
                          text=f"🚨 {r['name']} — {r['phone']} ({r['trust_score']}/100)",
                          text_color=config.COLOR_RED, font=F(12),
                          anchor="w", justify="left").pack(anchor="w", pady=2)
+        # low-stock products (v1.1.0 catalog)
+        from ..models import products as products_model
+        low = products_model.low_stock_products(db)
+        if low:
+            ctk.CTkLabel(self.alerts_box,
+                         text=f"📦 {self.app.t('dash_low_stock')} :",
+                         text_color=config.COLOR_ORANGE, font=F(12, "bold"),
+                         anchor="w", justify="left").pack(anchor="w", pady=(8, 0))
+            for p in low[:4]:
+                ctk.CTkLabel(self.alerts_box,
+                             text=f"   • {p['name']} : {p['quantity']}",
+                             text_color=config.COLOR_ORANGE, font=F(12),
+                             anchor="w", justify="left").pack(anchor="w", pady=1)

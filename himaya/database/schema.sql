@@ -1,6 +1,10 @@
 -- ============================================================================
 -- Himaya SQLite schema  (single local file: himaya.db)
 -- Schema version is tracked with PRAGMA user_version (see db.py migrations).
+--   v1: customers, orders, blacklist, inquiries, fake_screenshots,
+--       templates, settings
+--   v2: products catalog, orders.product_id + orders.deposit,
+--       detector_feedback (adaptive fake-receipt scoring)
 -- ============================================================================
 
 PRAGMA foreign_keys = ON;
@@ -24,15 +28,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
 CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
 
 -- ---------------------------------------------------------------------------
+-- Products catalog: cost/sale price + stock. Orders link to a product;
+-- real profit = sale - cost - shipping. Stock follows order statuses.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS products (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    cost_price REAL NOT NULL DEFAULT 0,
+    sale_price REAL NOT NULL DEFAULT 0,
+    quantity   INTEGER NOT NULL DEFAULT 0,
+    low_stock  INTEGER NOT NULL DEFAULT 5,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_products_name ON products(name);
+
+-- ---------------------------------------------------------------------------
 -- Orders: COD sales. date = creation date (YYYY-MM-DD).
--- shipped_at / delivered_at are set when the status changes, used by the
--- dashboard "shipments today" counters.
+-- product_id links to the catalog (NULL = free-text product, kept for
+-- backwards compatibility). deposit = acompte already received (DA);
+-- the label prints the REMAINING amount to collect.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS orders (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     customer_id    INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    product_id     INTEGER REFERENCES products(id) ON DELETE SET NULL,
     product        TEXT NOT NULL,
     price          REAL NOT NULL DEFAULT 0,
+    deposit        REAL NOT NULL DEFAULT 0,
     status         TEXT NOT NULL DEFAULT 'pending',
     delivery_method TEXT DEFAULT '',
     wilaya         TEXT DEFAULT '',
@@ -62,7 +84,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_blacklist_phone ON blacklist(phone);
 
 -- ---------------------------------------------------------------------------
 -- Inquiries: every contact that did (or did not) convert into an order.
--- Used by the Time-Waster Tracker to compute conversion rates.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS inquiries (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,9 +96,8 @@ CREATE TABLE IF NOT EXISTS inquiries (
 CREATE INDEX IF NOT EXISTS idx_inquiries_customer ON inquiries(customer_id);
 
 -- ---------------------------------------------------------------------------
--- Fake screenshots: hashes of analysed BaridiMob receipts.
--- image_hash = perceptual hash (dHash) for near-duplicate detection,
--- details    = JSON dump of the full analysis (reasons, verdict, ocr data).
+-- Fake screenshots: hashes of analysed BaridiMob receipts (also exchanged
+-- in .hma v2 files so known fakes spread between sellers).
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS fake_screenshots (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,6 +107,18 @@ CREATE TABLE IF NOT EXISTS fake_screenshots (
     details    TEXT DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_fake_hash ON fake_screenshots(image_hash);
+
+-- ---------------------------------------------------------------------------
+-- Detector feedback: the seller confirms/corrects each verdict; the local
+-- scoring adapts (weights per reason drift towards what the human says).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS detector_feedback (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    reason       TEXT NOT NULL,               -- reason code, e.g. ela_localized_edit
+    user_verdict TEXT NOT NULL,               -- 'real' | 'fake'
+    date         TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_reason ON detector_feedback(reason);
 
 -- ---------------------------------------------------------------------------
 -- Reply templates (Arabic / French) for common time-waster situations.

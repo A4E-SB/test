@@ -24,6 +24,16 @@
 | 🔌 **USB import / export** | The **`.hma` file**: Himaya's official blacklist to share between sellers on a USB key. Orders CSV/Excel import & export |
 | 🖨️ **Delivery labels** | A6 (105×148) or 100×100 PDF with color-coded risk level, barcode, warnings ("Call before delivery") |
 | ⚙️ **Settings** | FR/EN/AR UI language, CCP/BaridiMob account info (for deposits), default delivery company, backup/restore, all 58 wilayas built in |
+| 🛒 **Product catalog & stock** *(new v1.1)* | Products with cost/sale price and margin, automatic stock tracking (held per active order, released on cancel), low-stock alerts, **real profit** after product costs |
+| 💰 **Deposits (acompte)** *(new v1.1)* | Track advance payments with the "waiting deposit" status; labels print the exact **remaining amount** for the courier |
+| ⇩ **Courier status import** *(new v1.1)* | Bulk-load Yalidine / ZR / Maystro CSV-Excel exports (or paste "phone ; status" lines) — matching orders update themselves |
+| 👥 **Duplicate merger** *(new v1.1)* | Spots the same person behind several SIMs (similar name + wilaya/address) and merges their history in one click |
+| 📊 **Per-wilaya stats** *(new v1.1)* | Ghost rate per wilaya with automatic "ask for a deposit here" advice, order funnel, best customers with loyalty messages |
+| 🔔 **Follow-up center** *(new v1.1)* | Orders stuck in confirmed/shipped too long + ready-to-paste AR/FR reminders |
+| ⚡ **Quick add** *(new v1.1)* | Paste "Karim 0555123456 Sétif cite 200" — name/phone/wilaya/address fill themselves |
+| 🧠 **Detector that learns** *(new v1.1)* | Your REAL/FAKE verdicts locally tune the detection weights to your market |
+| 🔐 **Security** *(new v1.1)* | Optional app password (PBKDF2), automatic rotating backup (5 copies) on close |
+| 🔎 **Global search** *(new v1.1)* | Ctrl+K searches customers, orders, blacklist and products at once |
 
 The UI itself is fully trilingual **English ⇄ Français ⇄ العربية (RTL)** with one click.
 
@@ -31,7 +41,7 @@ The UI itself is fully trilingual **English ⇄ Français ⇄ العربية (RT
 
 ## ⬇️ Download the installer (already compiled for you)
 
-➡️ **[Himaya-Setup-1.0.6.exe — latest release](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+➡️ **[Himaya-Setup-1.1.0.exe — latest release](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
 One file (~83 MB): double-click → Next → Next → Finish. App + Python runtime +
 OCR engine included, no internet connection required.
 
@@ -45,7 +55,7 @@ works on any Windows 10/11 PC (4 GB RAM is enough).
 The installer adds: desktop + Start Menu shortcuts, a **French** wizard, a
 clean uninstaller that **asks** before touching your data (`%APPDATA%\Himaya`).
 Silent/bulk install:
-`Himaya-Setup-1.0.6.exe /VERYSILENT /SUPPRESSMSGBOXES`
+`Himaya-Setup-1.1.0.exe /VERYSILENT /SUPPRESSMSGBOXES`
 
 ### Option A — on your Windows PC
 
@@ -58,13 +68,13 @@ build_installer.bat
 
 The script does everything: venv → dependencies → PyInstaller → OCR engine
 staging (copied from your PC or downloaded once at build time — never on the
-end user's machine) → `installer\output\Himaya-Setup-1.0.6.exe`.
+end user's machine) → `installer\output\Himaya-Setup-1.1.0.exe`.
 
 ### Option B — built automatically on GitHub (no PC required)
 
 - **Actions** tab → *Build Windows installer* → **Run workflow** → download
   the `setup.exe` from the *artifacts*;
-- or push a tag (`git tag v1.0.6 && git push origin v1.0.6`): a **Release**
+- or push a tag (`git tag v1.1.0 && git push origin v1.1.0`): a **Release**
   is created automatically with the installer attached.
 
 ---

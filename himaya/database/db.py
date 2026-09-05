@@ -35,7 +35,7 @@ def _find_schema() -> Path:
 
 
 SCHEMA_PATH = _find_schema()
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class Database:
@@ -57,10 +57,23 @@ class Database:
         with self._lock:
             self.conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
             current = self.conn.execute("PRAGMA user_version").fetchone()[0]
+            if current < 2:
+                self._migrate_v2()          # orders: product_id + deposit
             if current < SCHEMA_VERSION:
                 # Future ALTER TABLE migrations go here, in order.
                 self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             self.conn.commit()
+
+    def _migrate_v2(self) -> None:
+        """v1 -> v2: add orders.product_id / orders.deposit (existing DBs)."""
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(orders)")}
+        if "product_id" not in cols:
+            self.conn.execute(
+                "ALTER TABLE orders ADD COLUMN product_id INTEGER "
+                "REFERENCES products(id) ON DELETE SET NULL")
+        if "deposit" not in cols:
+            self.conn.execute(
+                "ALTER TABLE orders ADD COLUMN deposit REAL NOT NULL DEFAULT 0")
 
     # -- helpers --------------------------------------------------------------
 

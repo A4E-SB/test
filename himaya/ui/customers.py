@@ -18,6 +18,7 @@ from ..models import inquiries as inquiries_model
 from ..models import orders as orders_model
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
+from . import widgets as W
 from .widgets import F, TrustBar, make_tree, tags_frame
 
 
@@ -33,7 +34,8 @@ class CustomersPage(ctk.CTkFrame):
         # ---- toolbar ------------------------------------------------------
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=(4, 2))
-        ctk.CTkLabel(top, text=app.t("cust_title"), font=F(22, "bold")).pack(side="left")
+        ctk.CTkLabel(top, text=app.t("cust_title"), font=F(22, "bold"),
+                 anchor=W.rtl_anchor(app)).pack(side=W.rtl_side(app))
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", lambda *_: self.refresh())
         entry = ctk.CTkEntry(top, textvariable=self.search_var, width=280,
@@ -44,6 +46,12 @@ class CustomersPage(ctk.CTkFrame):
                 app.t(f"tag_{tg}") for tg in config.KNOWN_TAGS],
             command=lambda _v: self.refresh())
         self.tag_filter.pack(side="left", padx=4)
+        ctk.CTkButton(top, text=app.t("dup_btn"), height=36, fg_color=config.COLOR_BG_3,
+                      hover_color=config.COLOR_BG,
+                      command=self.show_duplicates).pack(side="right", padx=4)
+        ctk.CTkButton(top, text=app.t("qa_btn"), height=36, fg_color=config.COLOR_BG_3,
+                      hover_color=config.COLOR_BG,
+                      command=self.quick_add).pack(side="right", padx=4)
         ctk.CTkButton(top, text=app.t("cust_add"), height=36, fg_color=config.COLOR_GREEN,
                       hover_color="#27ae60",
                       command=self.add_customer).pack(side="right")
@@ -181,6 +189,37 @@ class CustomersPage(ctk.CTkFrame):
                       ).pack(side="left")
 
     # ------------------------------------------------------------------ dialogs
+
+    def quick_add(self) -> None:
+        """Paste a line -> parsed fields -> create the customer."""
+        from .quick_add import QuickAddDialog
+        dlg = QuickAddDialog(self, self.app)
+        self.wait_window(dlg)
+        parsed = dlg.result
+        if not parsed or not parsed.get("phone"):
+            return
+        db = self.app.db
+        existing = customers_model.find_by_phone(db, parsed["phone"])
+        if existing:
+            self.app.toast(f"ℹ️ {existing['name']} — {existing['phone']}", "warn")
+            self.focus_customer(existing["id"])
+            return
+        customers_model.create(db, parsed["name"] or parsed["phone"], parsed["phone"],
+                               wilaya=parsed["wilaya"], address=parsed["address"])
+        self.app.toast(self.app.t("cust_added"), "ok")
+        self.refresh()
+
+    def show_duplicates(self) -> None:
+        from .duplicates_ui import DuplicatesDialog
+        DuplicatesDialog(self, self.app, on_merged=lambda: self.refresh())
+
+    def focus_customer(self, cid: int) -> None:
+        """Select one customer (global search / quick add jump here)."""
+        self.selected_id = cid
+        self.tree.selection_set(str(cid))
+        self.tree.focus(str(cid))
+        self.tree.see(str(cid))
+        self.render_detail()
 
     def add_customer(self) -> None:
         CustomerDialog(self, self.app, on_saved=lambda: self.refresh())

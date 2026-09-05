@@ -27,6 +27,7 @@ _WEIGHTS = {
     "blocked": -35,
     "pending": 0,
     "confirmed": 0,
+    "waiting_deposit": 0,
     "shipped": 0,
 }
 

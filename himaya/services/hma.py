@@ -17,7 +17,7 @@ from ..models import blacklist
 from ..services.phone import normalize_phone
 
 MAGIC = "HIMAYA-BLACKLIST"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2     # v2 adds fake-receipt hashes (known-fakes sharing)
 
 
 def export_blacklist(db: Database, out_path: str | Path) -> dict:
@@ -30,12 +30,18 @@ def export_blacklist(db: Database, out_path: str | Path) -> dict:
             "severity": row["severity"],
             "reported_date": row["reported_date"],
         })
+    # v2: share known fake-receipt hashes (no images, no private data)
+    hashes = [{"hash": r["image_hash"], "phone": r["phone"] or "", "date": r["date"]}
+              for r in db.query(
+                  "SELECT image_hash, phone, date FROM fake_screenshots "
+                  "ORDER BY id DESC LIMIT 500")]
     doc = {
         "magic": MAGIC,
         "version": FORMAT_VERSION,
         "exported_at": datetime.now().isoformat(timespec="seconds"),
         "count": len(entries),
         "entries": entries,
+        "fake_hashes": hashes,
     }
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -67,7 +73,19 @@ def import_blacklist(db: Database, in_path: str | Path) -> dict:
         )
         if not existing:
             imported += 1
-    return {"imported": imported, "skipped": skipped, "invalid": invalid}
+
+    # v2: merge known fake hashes (idempotent — re-import skips known ones)
+    hashes_added = 0
+    from ..models import screenshots as screenshots_model
+    for h in doc.get("fake_hashes", []):
+        ih = str(h.get("hash", "")).strip()
+        if ih and not screenshots_model.find_by_hash(db, ih):
+            screenshots_model.save(db, ih, h.get("phone", ""),
+                                   {"source": "hma", "date": h.get("date", "")})
+            hashes_added += 1
+
+    return {"imported": imported, "skipped": skipped, "invalid": invalid,
+            "hashes_added": hashes_added}
 
 
 # ---------------------------------------------------------------------------

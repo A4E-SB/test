@@ -17,6 +17,9 @@ DEFAULT_SETTINGS = {
     "default_shipping_cost": "600",   # average DZD shipping cost
     "tesseract_path": "",             # optional custom path to tesseract.exe
     "label_size": "a6",               # 'a6' (105x148) | 'square' (100x100)
+    # --- v1.1.0 ---
+    "relance_days": "3",              # follow-up threshold (days stuck)
+    "auto_backup": "1",               # backup .db on app close
 }
 
 # category: deposit / negotiation / ghost / warning / general
@@ -83,6 +86,26 @@ DEFAULT_TEMPLATES = [
      "Bonjour, votre colis est arrivé au bureau de votre wilaya 📦 "
      "Merci de le récupérer sous 48h, sinon il sera retourné et les frais "
      "de livraison resteront à votre charge."),
+    ("Merci fidèle — réduction", "loyalty",
+     "مرحبا {name} 🌟 نتمنى أنك راضي على « {last_product} ». كونك من زبائننا "
+     "الوفيين ({count} طلبات ناجحة)، عندك تخفيض 10% على طلبك القادم 🎁 "
+     "قلها لي وأنا أرتب لك.",
+     "Bonjour {name} 🌟 J'espère que « {last_product} » vous a plu ! "
+     "En tant que client fidèle ({count} commandes réussies), vous avez "
+     "-10% sur votre prochaine commande 🎁 Dites-le-moi et je vous l'organise."),
+    ("Retour client + avis", "loyalty",
+     "السلام عليكم {name} 🌹 واش راك مع المنتج اللي وصلك؟ رأيك يهمنا ويساعد "
+     "غيرك من الزبائن. إذا كلشي مزيان، جاوبنا بكلمة « ممتاز » 🙏 وإذا كان "
+     "أي مشكل أنا هنا نحلو معاك.",
+     "Bonjour {name} 🌹 Alors, ce produit livré ? Votre avis compte et aide "
+     "les autres clients. Si tout est bien, répondez « parfait » 🙏 Et si "
+     "il y a le moindre souci, je suis là pour le résoudre avec vous."),
+    ("Offre prioritaire VIP", "loyalty",
+     "{name}، نظرا لثقتك المتكررة ({count} طلبات)، عندك الأولية في الجديد "
+     "قبل ما يطلع للناس 🚀 وحجزنا لك وحدة من الكمية الجديدة. تؤكد؟",
+     "{name}, grâce à votre confiance répétée ({count} commandes), vous avez "
+     "un accès prioritaire aux nouveautés 🚀 Je vous en ai réservé une "
+     "de la nouvelle collection. Vous confirmez ?"),
 ]
 
 

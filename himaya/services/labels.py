@@ -196,6 +196,22 @@ def generate_labels(db: Database, order_ids: list[int], out_path: str | Path,
         cod_ar = "الدفع عند الاستلام"
         c.drawRightString(w - 6 * mm, y,
                           (_ar(cod_ar) + "  •  " if ar else "") + cod)
+        # deposit already received -> the courier must only collect the rest
+        dep = order["deposit"] if "deposit" in order.keys() else 0
+        if dep > 0:
+            y -= 7 * mm
+            c.setFont(latin, 12)
+            rest = order["price"] - dep
+            if ar:
+                dep_txt = (_ar("التسبيق مقبوض + ") +
+                           f"{dep:,.0f} ".replace(",", " ") + _ar("دج — يبقى ") +
+                           f"{rest:,.0f} ".replace(",", " ") + _ar("دج فقط"))
+            else:
+                dep_txt = (f"ACOMPTE REÇU {dep:,.0f} DA".replace(",", " ") +
+                           f" — RESTE {rest:,.0f} DA SEULEMENT".replace(",", " "))
+            c.setFillColor(colors.HexColor("#c0392b"))
+            c.drawString(6 * mm, y, dep_txt)
+            c.setFillColor(colors.black)
 
         # Warning note
         if note:

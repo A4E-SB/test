@@ -3,6 +3,9 @@ Main window: sidebar navigation + page container + language switching.
 
 The App object is passed to every page: it exposes db, lang, t(), toast()
 and the risk-check helper used to fire scam alerts.
+
+v1.1.0: full RTL mirroring in Arabic (sidebar flips to the right), global
+search (Ctrl+K), first-launch tour and optional password lock.
 """
 
 from __future__ import annotations
@@ -39,6 +42,8 @@ PAGES = [
     ("dashboard", "nav_dashboard", "🏠"),
     ("customers", "nav_customers", "👥"),
     ("orders", "nav_orders", "📦"),
+    ("products", "nav_products", "🛒"),
+    ("relance", "nav_relance", "🔔"),
     ("detector", "nav_detector", "🔍"),
     ("time_wasters", "nav_time_wasters", "⏳"),
     ("reports", "nav_reports", "💰"),
@@ -60,6 +65,7 @@ class HimayaApp(ctk.CTk):
         self.page = None
         self._nav_buttons: dict[str, ctk.CTkButton] = {}
         self._pages: dict[str, object] = {}   # cache -> instant page switching
+        self._unlocked = False                # set by the password gate
 
         self.title(t("app_title", self.lang))
         self.geometry("1280x760")
@@ -71,51 +77,90 @@ class HimayaApp(ctk.CTk):
         except Exception:
             pass
 
+        self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        self._apply_rtl()
         self._build_sidebar()
         self.main = ctk.CTkFrame(self, fg_color=config.COLOR_BG, corner_radius=0)
-        self.main.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
+        self.main.grid(row=0, column=1 if self.lang == "ar" else 0,
+                       sticky="nsew", padx=0, pady=0)
         self.main.grid_columnconfigure(0, weight=1)
         self.main.grid_rowconfigure(0, weight=1)
 
+        # global search: Ctrl+K from anywhere
+        self.bind_all("<Control-k>", lambda e: self.open_global_search())
+        self.bind_all("<Control-K>", lambda e: self.open_global_search())
+
         self.show_page("dashboard")
 
-    # ------------------------------------------------------------------ UI
+        # password lock first (if the seller set one in Settings → Security);
+        # on success it shows the first-launch tour itself when due
+        self.after(200, self._check_password_gate)
+        if not security_has_password(db):
+            # first launch: quick tour + optional demo data
+            if not settings_store.get_setting(db, "tour_done", ""):
+                self.after(300, self._show_tour)
+
+    # ------------------------------------------------------------------ layout
+
+    def _apply_rtl(self) -> None:
+        """Remember the layout direction: Arabic mirrors the whole window
+        (sidebar on the right, anchors flipped on every page)."""
+        self._rtl = self.lang == "ar"
+
+    @property
+    def rtl(self) -> bool:
+        return getattr(self, "_rtl", self.lang == "ar")
 
     def _build_sidebar(self) -> None:
         self.sidebar = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=0,
                                     width=230)
-        self.sidebar.grid(row=0, column=0, sticky="nsw")
+        self.sidebar.grid(row=0, column=1 if self.rtl else 0,
+                          sticky="nse" if self.rtl else "nsw")
         self.sidebar.grid_propagate(False)
-        self.sidebar.grid_rowconfigure(len(PAGES) + 2, weight=1)
+        self.sidebar.grid_rowconfigure(len(PAGES) + 3, weight=1)
 
         # brand block: logo + name (falls back to text if the asset is missing)
         brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        brand.grid(row=0, column=0, padx=18, pady=(20, 2), sticky="w")
+        brand.grid(row=0, column=0, padx=18, pady=(20, 2),
+                   sticky="e" if self.rtl else "w")
+        logo_first = self.rtl  # in RTL the text comes first, logo last
         try:
             from PIL import Image as PILImage
             self._logo_img = ctk.CTkImage(
                 light_image=PILImage.open(config.ASSETS_DIR / "icon.png"),
                 size=(44, 44))
-            ctk.CTkLabel(brand, image=self._logo_img, text="").pack(side="left",
-                                                                    padx=(0, 10))
+            ctk.CTkLabel(brand, image=self._logo_img, text=""
+                         ).pack(side="right" if logo_first else "left",
+                                padx=(10 if logo_first else 0,
+                                      0 if logo_first else 10))
         except Exception:
             pass
         ctk.CTkLabel(brand, text="Himaya", font=F(24, "bold"),
-                     text_color=config.COLOR_ACCENT).pack(side="left")
+                     text_color=config.COLOR_ACCENT).pack(
+            side="left" if logo_first else "right")
         ctk.CTkLabel(self.sidebar,
                      text=f"حماية — {t('offline_badge', self.lang)}",
                      font=F(11), text_color=config.COLOR_FG_DIM
-                     ).grid(row=1, column=0, padx=22, pady=(0, 18), sticky="w")
+                     ).grid(row=1, column=0, padx=22, pady=(0, 14),
+                            sticky="e" if self.rtl else "w")
 
-        for i, (key, label_key, icon) in enumerate(PAGES, start=2):
+        # global search button (Ctrl+K)
+        search_btn = ctk.CTkButton(
+            self.sidebar, text="🔎 " + t("gs_title", self.lang), anchor="c",
+            font=F(12), height=32, corner_radius=8, fg_color=config.COLOR_BG_3,
+            hover_color=config.COLOR_BG, text_color=config.COLOR_FG,
+            command=self.open_global_search)
+        search_btn.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
+
+        for i, (key, label_key, icon) in enumerate(PAGES, start=3):
             btn = ctk.CTkButton(
-                self.sidebar, text=f" {icon}  {t(label_key, self.lang)}",
-                anchor="w", font=F(13), height=40, corner_radius=8,
-                fg_color="transparent", hover_color=config.COLOR_BG_3,
-                text_color=config.COLOR_FG,
+                self.sidebar, text=f"{icon}  {t(label_key, self.lang)}",
+                anchor="e" if self.rtl else "w", font=F(13), height=38,
+                corner_radius=8, fg_color="transparent",
+                hover_color=config.COLOR_BG_3, text_color=config.COLOR_FG,
                 command=lambda k=key: self.show_page(k))
             btn.grid(row=i, column=0, sticky="ew", padx=12, pady=2)
             self._nav_buttons[key] = btn
@@ -128,10 +173,10 @@ class HimayaApp(ctk.CTk):
             font=F(13), height=36, fg_color=config.COLOR_BG_3,
             hover_color=config.COLOR_BG, text_color=config.COLOR_FG,
             command=self.toggle_language)
-        lang_btn.grid(row=len(PAGES) + 2, column=0, sticky="ew", padx=12, pady=(6, 4))
+        lang_btn.grid(row=len(PAGES) + 3, column=0, sticky="ew", padx=12, pady=(6, 4))
         ctk.CTkLabel(self.sidebar, text=f"Himaya v{config.APP_VERSION}",
                      font=F(10), text_color=config.COLOR_FG_DIM
-                     ).grid(row=len(PAGES) + 3, column=0, padx=12, pady=(0, 12))
+                     ).grid(row=len(PAGES) + 4, column=0, padx=12, pady=(0, 12))
 
     # ------------------------------------------------------------------ pages
 
@@ -140,6 +185,8 @@ class HimayaApp(ctk.CTk):
         from .dashboard import DashboardPage
         from .customers import CustomersPage
         from .orders import OrdersPage
+        from .products import ProductsPage
+        from .relance import RelancePage
         from .detector_ui import DetectorPage
         from .time_wasters import TimeWastersPage
         from .reports_ui import ReportsPage
@@ -149,7 +196,8 @@ class HimayaApp(ctk.CTk):
 
         classes = {
             "dashboard": DashboardPage, "customers": CustomersPage,
-            "orders": OrdersPage, "detector": DetectorPage,
+            "orders": OrdersPage, "products": ProductsPage,
+            "relance": RelancePage, "detector": DetectorPage,
             "time_wasters": TimeWastersPage, "reports": ReportsPage,
             "transfer": TransferPage, "labels": LabelsPage,
             "settings": SettingsPage,
@@ -190,11 +238,36 @@ class HimayaApp(ctk.CTk):
         for w in self.sidebar.winfo_children():
             w.destroy()
         self._nav_buttons.clear()
+        self._apply_rtl()
+        # re-grid main frame on the correct side of the mirrored layout
+        self.main.grid(row=0, column=1 if self.rtl else 0, sticky="nsew")
         self._build_sidebar()
         self.show_page(self.page_name or "dashboard")
 
     def toggle_language(self) -> None:
         self.set_language(next_lang(self.lang))
+
+    # ------------------------------------------------------------------ search
+
+    def open_global_search(self) -> None:
+        from .search import GlobalSearchDialog
+        GlobalSearchDialog(self, self)
+
+    # ------------------------------------------------------------------ tour / lock
+
+    def _show_tour(self) -> None:
+        from .tour import TourDialog
+        TourDialog(self, self)
+
+    def _check_password_gate(self) -> None:
+        if self._unlocked:
+            return
+        from ..services import security
+        if not security.has_password(self.db):
+            self._unlocked = True
+            return
+        from .tour import PasswordGate
+        PasswordGate(self, self)
 
     # ------------------------------------------------------------------ helpers
 
@@ -231,3 +304,12 @@ class HimayaApp(ctk.CTk):
             W.ScamAlert(self, self, risk, on_block=on_block, on_continue=on_continue,
                         show_block_btn=show_block_btn)
         return risk
+
+
+def security_has_password(db) -> bool:
+    """Module-level helper (kept lazy: services may be stubbed in tests)."""
+    try:
+        from ..services import security
+        return security.has_password(db)
+    except Exception:
+        return False

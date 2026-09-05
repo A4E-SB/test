@@ -314,6 +314,43 @@ class TFLiteClassifier:
 # Main entry point
 # ---------------------------------------------------------------------------
 
+def record_feedback(db, reasons: list, user_verdict: str) -> None:
+    """
+    Remember the seller's verdict for each reason that fired — the local
+    scoring then drifts towards what the human consistently says.
+    user_verdict: 'real' | 'fake'
+    """
+    for code, _detail in reasons or []:
+        base = code.split("::")[0]
+        db.execute("INSERT INTO detector_feedback(reason, user_verdict) VALUES(?,?)",
+                   (base, user_verdict))
+
+
+def learned_weights(db) -> dict:
+    """
+    Effective reason weights: default weights adjusted by the human's
+    confirmations (fake multiplies up, real multiplies down; bounded).
+    """
+    out = {}
+    try:
+        rows = db.query("SELECT reason, user_verdict, COUNT(*) n "
+                        "FROM detector_feedback GROUP BY reason, user_verdict")
+    except Exception:
+        rows = []
+    stats: dict[str, dict] = {}
+    for r in rows:
+        d = stats.setdefault(r["reason"], {"fake": 0, "real": 0})
+        d[r["user_verdict"]] = r["n"]
+    for base, w in {**_RED_FLAGS, **_YELLOW_FLAGS}.items():
+        st = stats.get(base)
+        if not st:
+            continue
+        factor = ((st["fake"] + 1) / (st["real"] + 1)) ** 0.5
+        factor = max(0.25, min(4.0, factor))
+        out[base] = max(0, min(80, int(w * factor)))
+    return out
+
+
 # Reason codes -> severity weight (how strongly they push towards FAKE)
 _RED_FLAGS = {
     "known_fake_match": 60, "known_fake_near_match": 40,
@@ -355,6 +392,7 @@ def analyze(path: str | Path, db: Database | None = None,
 
     score = 0  # weighted red flags total
     reasons: list[tuple[str, str]] = []
+    weights = learned_weights(db) if db is not None else {}
 
     # ---- 1. perceptual hash vs known fakes --------------------------------
     h = dhash(image)
@@ -366,18 +404,20 @@ def analyze(path: str | Path, db: Database | None = None,
             dist = hamming_hex(h, row["image_hash"])
             if dist == 0:
                 reasons.append(("known_fake_match", row["phone"] or ""))
-                score += _RED_FLAGS["known_fake_match"]
+                score += weights.get("known_fake_match",
+                                     _RED_FLAGS["known_fake_match"])
             elif dist <= 6:
                 near += 1
         if near:
             reasons.append(("known_fake_near_match", str(near)))
-            score += _RED_FLAGS["known_fake_near_match"]
+            score += weights.get("known_fake_near_match",
+                                 _RED_FLAGS["known_fake_near_match"])
 
     # ---- 2. metadata -------------------------------------------------------
     for code in check_metadata(image):
         base = code.split("::")[0]
         reasons.append((code, code.split("::", 1)[1] if "::" in code else ""))
-        score += _RED_FLAGS.get(base, 10)
+        score += weights.get(base, _RED_FLAGS.get(base, 10))
 
     # ---- 3. OCR ------------------------------------------------------------
     text, ocr_ok = _ocr_text(image, tesseract_cmd)
@@ -392,13 +432,13 @@ def analyze(path: str | Path, db: Database | None = None,
     }
     for code in check_extracted(extracted):
         reasons.append((code, ""))
-        score += _RED_FLAGS.get(code, _YELLOW_FLAGS.get(code, 10))
+        score += weights.get(code, _RED_FLAGS.get(code, _YELLOW_FLAGS.get(code, 10)))
 
     # ---- 4. pixel forensics ------------------------------------------------
     pixel_reasons = _text_regions_conflict(image) + _ela_hotspots(image)
     for code in pixel_reasons:
         reasons.append((code, ""))
-        score += _RED_FLAGS.get(code, 20)
+        score += weights.get(code, _RED_FLAGS.get(code, 20))
     if not HAS_CV2:
         reasons.append(("pixel_checks_skipped", ""))
 

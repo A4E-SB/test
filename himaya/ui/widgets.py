@@ -265,6 +265,50 @@ class BarChart(ctk.CTkCanvas):
 
 
 # ---------------------------------------------------------------------------
+# Funnel chart: horizontal stage bars (pending -> paid)
+# ---------------------------------------------------------------------------
+
+class FunnelChart(ctk.CTkCanvas):
+    """Order funnel drawn on a canvas: one bar per lifecycle stage."""
+
+    def __init__(self, master, lang: str = "fr", bg: str = config.COLOR_BG,
+                 height: int = 220):
+        super().__init__(master, bg=bg, highlightthickness=0, height=height)
+        self.lang = lang
+        self.stages: list[dict] = []
+        self.bind("<Configure>", lambda e: self._draw())
+
+    def set_data(self, stages: list[dict]) -> None:
+        self.stages = stages or []
+        self._draw()
+
+    def _draw(self) -> None:
+        self.delete("all")
+        w, h = self.winfo_width(), self.winfo_height()
+        if w < 80 or h < 60 or not self.stages:
+            return
+        n = len(self.stages)
+        row_h = h / n
+        label_w = 118
+        max_n = max((s["count"] for s in self.stages), default=1) or 1
+        colors = [config.COLOR_BG_3, "#5d6b8a", config.COLOR_YELLOW,
+                  "#8e7cc3", "#2aa198", config.COLOR_GREEN]
+        for i, s in enumerate(self.stages):
+            y = i * row_h + 4
+            bh = row_h - 10
+            self.create_text(4, y + bh / 2, anchor="w",
+                             text=t(f"st_{s['stage']}", self.lang),
+                             fill=config.COLOR_FG_DIM, font=(FONT_FAMILY, 10))
+            bar_max = w - label_w - 90
+            bw = max(4, int(bar_max * s["count"] / max_n))
+            self.create_rectangle(label_w, y, label_w + bw, y + bh,
+                                  fill=colors[i % len(colors)], width=0)
+            self.create_text(label_w + bw + 8, y + bh / 2, anchor="w",
+                             text=f"{s['count']}  ({s['pct']:.0f}%)",
+                             fill=config.COLOR_FG, font=(FONT_FAMILY, 10, "bold"))
+
+
+# ---------------------------------------------------------------------------
 # Scam alert popup
 # ---------------------------------------------------------------------------
 
@@ -340,6 +384,16 @@ class ScamAlert(ctk.CTkToplevel):
 # ---------------------------------------------------------------------------
 # Small helpers
 # ---------------------------------------------------------------------------
+
+def rtl_side(app, normal: str = "left") -> str:
+    """Pack side flipped in Arabic (RTL mirror)."""
+    return "right" if getattr(app, "lang", "fr") == "ar" else normal
+
+
+def rtl_anchor(app) -> str:
+    """Text anchor flipped in Arabic (RTL mirror)."""
+    return "e" if getattr(app, "lang", "fr") == "ar" else "w"
+
 
 def row_tag(status: str) -> str:
     """Treeview color tag for an order status."""

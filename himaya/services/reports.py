@@ -45,6 +45,14 @@ def summary_for_range(db: Database, date_from: str, date_to: str) -> dict:
                      (date_from, date_to))
     saved = scal("SELECT COALESCE(SUM(shipping_cost),0) FROM orders "
                  "WHERE status = 'blocked' AND date BETWEEN ? AND ?", (date_from, date_to))
+    # real profit: subtract product costs when the catalog knows them
+    real_profit = scal(
+        "SELECT COALESCE(SUM(o.price - COALESCE(p.cost_price, 0) - o.shipping_cost), 0) "
+        "FROM orders o LEFT JOIN products p ON p.id = o.product_id "
+        "WHERE o.status = 'paid' AND o.date BETWEEN ? AND ?", (date_from, date_to))
+    deposits = scal("SELECT COALESCE(SUM(deposit),0) FROM orders "
+                    "WHERE deposit > 0 AND date BETWEEN ? AND ?",
+                    (date_from, date_to))
     n_orders = scal("SELECT COUNT(*) FROM orders WHERE date BETWEEN ? AND ?",
                     (date_from, date_to))
     n_done = scal("SELECT COUNT(*) FROM orders WHERE status IN ('delivered','paid') "
@@ -55,7 +63,7 @@ def summary_for_range(db: Database, date_from: str, date_to: str) -> dict:
         "lost_shipping": lost_shipping,
         "fake_loss": fake_loss,
         "losses": lost_shipping + fake_loss,
-        "saved": saved,
+        "saved": saved, "real_profit": real_profit, "deposits": deposits,
         "orders": int(n_orders),
         "delivered": int(n_done),
         "completion": (n_done / n_orders * 100.0) if n_orders else 0.0,

@@ -121,6 +121,7 @@ class TransferPage(ctk.CTkScrollableFrame):
         except ValueError:
             self.app.toast(self.app.t("tr_not_hma"), "err")
             return
+        res.setdefault("hashes", 0)
         self.app.toast(self.app.t("tr_hma_imported", **res), "ok")
         self.refresh()
 
