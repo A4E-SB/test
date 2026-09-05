@@ -197,6 +197,21 @@ def main() -> int:
     print("  ✓ all pages (en)")
     app.set_language("fr")
 
+    # ---- v1.1.2: language switch from EVERY page must rebuild a LIVE page --
+    # (v1.1.1 bug: set_language destroyed pages but self.page kept pointing
+    # at the dead frame -> show_page's grid_remove raised TclError and
+    # aborted, leaving a blank window and dead navigation)
+    from himaya.ui.app import PAGES as ALL_PAGES
+    for name, _lbl, _ico in ALL_PAGES:
+        app.show_page(name)
+        old_page = app.page
+        app.set_language("ar")
+        assert app.page is not old_page, f"dead page kept after switch from {name}"
+        assert app.page_name == name, f"page name lost switching from {name}"
+        assert app._pages.get(name) is app.page, f"cache not rebuilt for {name}"
+        app.set_language("fr")
+    print("  ✓ language switch from every page rebuilds a live page (v1.1.2)")
+
     # ---- dialog constructors (no save() calls) -----------------------------
     from himaya.ui.customers import CustomerDialog
     from himaya.ui.orders import OrderDialog

@@ -218,7 +218,10 @@ class HimayaApp(ctk.CTk):
         # hide current page, then show the target one — pages are CACHED so
         # switching is instant after the first visit (no rebuild lag)
         if self.page is not None:
-            self.page.grid_remove()
+            try:
+                self.page.grid_remove()
+            except Exception:
+                pass   # already destroyed (e.g. right after a language switch)
         for k, btn in self._nav_buttons.items():
             active = k == name
             btn.configure(fg_color=config.COLOR_ACCENT if active else "transparent",
@@ -240,13 +243,31 @@ class HimayaApp(ctk.CTk):
     def set_language(self, lang: str) -> None:
         settings_store.set_setting(self.db, "language", lang)
         self.lang = lang
-        # cached pages hold translated strings -> rebuild them lazily
+        # cached pages hold translated strings -> rebuild them lazily.
+        # Order matters (v1.1.2): DETACH each page before destroying it —
+        # calling grid_remove() on a destroyed frame raises TclError, and
+        # CTkScrollableFrame pages keep an outer shell frame alive after
+        # destroy() (the shell must leave the grid or empty shells stack).
         for page in self._pages.values():
+            try:
+                page.grid_remove()
+            except Exception:
+                pass
             try:
                 page.destroy()
             except Exception:
                 pass
+            shell = getattr(page, "_parent_frame", None)
+            if shell is not None:
+                try:
+                    shell.destroy()
+                except Exception:
+                    pass
         self._pages.clear()
+        # self.page refers to a destroyed frame now — reset it so
+        # show_page() never calls grid methods on a dead widget (that
+        # TclError aborted show_page mid-way and left a blank window).
+        self.page = None
         self.title(t("app_title", lang))
         for w in self.sidebar.winfo_children():
             w.destroy()
