@@ -128,6 +128,15 @@ class HimayaApp(ctk.CTk):
         return getattr(self, "_rtl", self.lang == "ar")
 
     def _build_sidebar(self) -> None:
+        # defense in depth: if a previous sidebar frame still exists
+        # (rebuild on language switch), remove it so exactly ONE sidebar
+        # is ever gridded — on the column matching the current direction
+        prev = getattr(self, "sidebar", None)
+        if prev is not None:
+            try:
+                prev.destroy()
+            except Exception:
+                pass
         self.sidebar = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=0,
                                     width=230)
         self.sidebar.grid(row=0, column=self._side_col,
@@ -269,8 +278,16 @@ class HimayaApp(ctk.CTk):
         # TclError aborted show_page mid-way and left a blank window).
         self.page = None
         self.title(t("app_title", lang))
-        for w in self.sidebar.winfo_children():
-            w.destroy()
+        # v1.1.3: destroy the old sidebar FRAME ENTIRELY before rebuilding.
+        # v1.1.2 only destroyed its children, then _build_sidebar() created
+        # a new frame on the (mirrored) other side — the old empty 230px
+        # frame stayed gridded in the previous column, overlapping the
+        # content cell: an empty strip on the original side and, once
+        # leaked frames stacked above the content, a dead panel over it.
+        try:
+            self.sidebar.destroy()
+        except Exception:
+            pass
         self._nav_buttons.clear()
         self._apply_rtl()
         # re-grid main frame on the correct side of the mirrored layout

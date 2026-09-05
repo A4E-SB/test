@@ -212,6 +212,24 @@ def main() -> int:
         app.set_language("fr")
     print("  ✓ language switch from every page rebuilds a live page (v1.1.2)")
 
+    # ---- v1.1.3: the old sidebar FRAME must die on language switch -------
+    # (v1.1.2 destroyed only its children; the empty 230px frame stayed
+    # gridded in the previous column -> empty strip on the original side,
+    # and leaked frames stacked over the content)
+    class _SidebarRecorder:
+        def __init__(self):
+            self.destroyed = False
+        def winfo_children(self):
+            return []
+        def destroy(self):
+            self.destroyed = True
+    rec = _SidebarRecorder()
+    app.sidebar = rec
+    app.set_language("en")
+    assert rec.destroyed, "old sidebar frame leaked on language switch"
+    app.set_language("fr")
+    print("  ✓ old sidebar frame destroyed on switch (v1.1.3 fix)")
+
     # ---- dialog constructors (no save() calls) -----------------------------
     from himaya.ui.customers import CustomerDialog
     from himaya.ui.orders import OrderDialog
