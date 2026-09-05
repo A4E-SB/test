@@ -5,6 +5,6 @@ A fully local desktop app: no internet, no servers, no accounts.
 Everything (data, analysis, printing) happens on the seller's PC.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 APP_NAME = "Himaya"
 APP_NAME_AR = "حماية"

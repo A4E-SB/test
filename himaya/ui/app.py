@@ -59,10 +59,11 @@ class HimayaApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
         super().__init__(fg_color=config.COLOR_BG)
         self.dnd_enabled = _enable_dnd(self)   # optional drag & drop
-        # typeface: Tajawal (bundled) when the UI is Arabic, Segoe UI otherwise
-        W.set_ui_font(arabic=self.lang == "ar")
         self.db = db
         self.lang = settings_store.get_setting(db, "language", "fr")
+        # typeface: Tajawal (bundled) when the UI is Arabic, Segoe UI otherwise
+        # (MUST come after self.lang is set — v1.2.0 crashed here on launch)
+        W.set_ui_font(arabic=self.lang == "ar")
         self.page_name: str | None = None
         self.page = None
         self._nav_buttons: dict[str, ctk.CTkButton] = {}

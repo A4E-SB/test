@@ -111,7 +111,64 @@ def install_stubs() -> None:
     sys.modules["tkinterdnd2.TkinterDnD"] = tkdnd_mod
 
 
+
+
+# ---------------------------------------------------------------------------
+# v1.2.1: init-order lint — catches reads of self.X BEFORE it is assigned
+# in the same __init__ (the v1.2.0 crash: self.lang read 3 lines too early).
+# The stub environment cannot catch this class of bug (any attribute returns
+# a stub), so we check the REAL source with the AST instead.
+# ---------------------------------------------------------------------------
+
+def lint_init_order() -> list[str]:
+    import ast
+    problems: list[str] = []
+    for path in sorted(Path("himaya").rglob("*.py")):
+        if "ui" not in path.parts:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
+            # names that are methods or properties of the class -> always ok
+            ok_names = set()
+            for item in cls.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    ok_names.add(item.name)
+                    if any(isinstance(d, ast.Name) and d.id == "property"
+                           for d in item.decorator_list):
+                        ok_names.add(item.name)
+            for fn in (n for n in cls.body if isinstance(n, ast.FunctionDef)
+                       and n.name == "__init__"):
+                events = []
+                for node in ast.walk(fn):
+                    if (isinstance(node, ast.Attribute)
+                            and isinstance(node.value, ast.Name)
+                            and node.value.id == "self"):
+                        if isinstance(node.ctx, ast.Store):
+                            events.append((node.lineno, "W", node.attr))
+                        elif node.attr not in ok_names:
+                            events.append((node.lineno, "R", node.attr))
+                events.sort()
+                # a read is a bug if that attr is WRITTEN LATER in this fn
+                writes = {a for _l, k, a in events if k == "W"}
+                seen_written = set()
+                for _l, kind, attr in events:
+                    if kind == "W":
+                        seen_written.add(attr)
+                    elif attr in writes and attr not in seen_written:
+                        problems.append(
+                            f"{path}:{_l} self.{attr} read before assignment")
+    return problems
+
+
 def main() -> int:
+    # ---- init-order lint FIRST: runs on real source, no stubs ----------
+    problems = lint_init_order()
+    for pr in problems:
+        print("  ✗ " + pr)
+    if problems:
+        print(f"UI SMOKE TEST: {len(problems)} init-order bug(s)")
+        return 1
+    print("  ✓ init-order lint: no self.X read before assignment (v1.2.1)")
     install_stubs()
 
     # force a temp data dir so nothing touches a real profile
