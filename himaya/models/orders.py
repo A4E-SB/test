@@ -15,11 +15,31 @@ from .. import config
 from ..database.db import Database
 
 
+def parse_date_text(text: str) -> str | None:
+    """
+    Normalize a user-typed date to ISO (YYYY-MM-DD).
+    Accepts '2026-09-12', '12/09/2026', '12-09-2026', '2026/09/12'.
+    Returns '' when empty (caller falls back to today), None when invalid.
+    """
+    text = (text or "").strip()
+    if not text:
+        return ""
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            from datetime import datetime
+            return datetime.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
 def create(db: Database, customer_id: int, product: str, price: float,
            status: str = "pending", delivery_method: str = "", wilaya: str = "",
            shipping_cost: float = 0.0, notes: str = "", order_date: str = "",
            product_id: int | None = None, deposit: float = 0.0) -> int:
     from . import products as products_model
+    # normalize the date (accepts ISO or day-first); invalid -> today
+    norm = parse_date_text(order_date)
     cur = db.execute(
         """INSERT INTO orders(customer_id, product_id, product, price, deposit,
                               status, delivery_method, wilaya, date,
@@ -27,7 +47,7 @@ def create(db: Database, customer_id: int, product: str, price: float,
            VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
         (customer_id, product_id, product.strip(), float(price or 0),
          float(deposit or 0), status, delivery_method, wilaya,
-         order_date or date.today().isoformat(), float(shipping_cost or 0), notes),
+         norm or date.today().isoformat(), float(shipping_cost or 0), notes),
     )
     # stock: a fresh non-blocked order holds one unit
     products_model.adjust_quantity(db, product_id,
@@ -42,6 +62,11 @@ def update(db: Database, order_id: int, **fields) -> None:
     for k, v in fields.items():
         if k not in allowed:
             continue
+        if k == "date":
+            norm = parse_date_text(str(v))
+            if not norm:            # empty or invalid -> keep the current date
+                continue
+            v = norm
         sets.append(f"{k} = ?")
         vals.append(v)
     if sets:

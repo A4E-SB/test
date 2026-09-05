@@ -406,6 +406,63 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.4 order-form behavior: price from stock, custom company, date --
+    import inspect as _inspect
+    from himaya.ui import orders as _orders_ui
+    _src = _inspect.getsource(_orders_ui)
+    assert "ord_date_today" in _src and "parse_date_text" in _src, \
+        "order form must expose the date field + validator"
+    assert 'self.price.set(str(int(p["sale_price"])))' in _src, \
+        "catalog pick must fill the catalog sale price"
+    assert "delivery_companies" in _src and "_add_company_tag" in _src, \
+        "delivery combo must list saved companies + the add entry"
+    assert "order_date=date_iso" in _src, "create must pass the order date"
+    assert '**({"date": date_iso} if date_iso else {})' in _src, \
+        "update must only set the date when one was typed"
+    print("  ✓ order form: date + company + price wiring present")
+
+    class _Var:
+        def __init__(self, v=""):
+            self.v, self.set_calls = v, []
+        def get(self):
+            return self.v
+        def set(self, v):
+            self.v, _ = v, self.set_calls.append(v)
+
+    dlg3 = OrderDialog(app, app)
+    dlg3._catalog = [{"id": 7, "name": "Montre connectée", "sale_price": 4200}]
+    dlg3.product = _Var("Montre connectée")
+    dlg3.price = _Var("999")          # already-filled price must be OVERWRITTEN
+    dlg3._on_catalog_pick()
+    assert dlg3.price.set_calls == ["4200"], dlg3.price.set_calls
+    print("  ✓ catalog pick overwrites price with the stock price")
+
+    class _Combo:
+        def __init__(self, v):
+            self.v, self.set_calls, self.cfg = v, [], {}
+        def get(self):
+            return self.v
+        def set(self, v):
+            self.v, _ = v, self.set_calls.append(v)
+        def configure(self, **kw):
+            self.cfg.update(kw)
+
+    from himaya.ui import quick_add as _qa
+    from himaya.models import settings_store as _ss
+    dlg3._add_company_tag, dlg3._last_company = "➕ ADD", "Yalidine"
+    dlg3.delivery = _Combo("➕ ADD")
+    _qa.ask_text = lambda *a, **k: "Kazi Tour Express"
+    dlg3._on_company_pick()
+    assert dlg3.delivery.set_calls == ["Kazi Tour Express"], dlg3.delivery.set_calls
+    assert "Kazi Tour Express" in _ss.delivery_companies(app.db)
+    dlg3.delivery = _Combo("➕ ADD")
+    dlg3._last_company = "Yalidine"                # as if picked before
+    _qa.ask_text = lambda *a, **k: None            # cancelled
+    dlg3._on_company_pick()
+    assert dlg3.delivery.set_calls == ["Yalidine"], dlg3.delivery.set_calls
+    print("  ✓ custom delivery company: saved on add, kept on cancel")
+    dlg3.close()
+
     # source-level guarantee: no dialog grabs directly (deferred grab only)
     import subprocess
     bad = subprocess.run(

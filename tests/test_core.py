@@ -153,6 +153,51 @@ def test_orders_and_aggregates(tmp: Path) -> None:
     check("money_saved counts blocked shipping", orders.money_saved(db) == 650.0)
 
 
+def test_order_date_and_companies(tmp: Path) -> None:
+    """v1.4: custom order date + custom delivery companies."""
+    from datetime import date as _date
+    from himaya.models.orders import parse_date_text, create, update, get
+    from himaya.models import customers, settings_store
+
+    db = make_db(tmp)
+    cid = customers.create(db, "Dated Client", "0669998877", wilaya="Alger")
+
+    # -- date parsing: ISO, day-first, both separators, empty, invalid
+    check("parse ISO", parse_date_text("2026-09-12") == "2026-09-12")
+    check("parse DD/MM/YYYY", parse_date_text("12/09/2026") == "2026-09-12")
+    check("parse DD-MM-YYYY", parse_date_text("12-09-2026") == "2026-09-12")
+    check("parse YYYY/MM/DD", parse_date_text("2026/09/12") == "2026-09-12")
+    check("parse empty -> ''", parse_date_text("   ") == "")
+    check("parse 31/02 invalid", parse_date_text("31/02/2026") is None)
+    check("parse garbage invalid", parse_date_text("soon") is None)
+    check("parse partial invalid", parse_date_text("12/09") is None)
+
+    # -- order date stored / updated / defaulted
+    oid = create(db, cid, "Produit daté", 1000, order_date="15/01/2026",
+                 delivery_method="SpeedEx")
+    check("custom date stored (ISO)",
+          get(db, oid)["date"] == "2026-01-15")
+    update(db, oid, date="2026-02-20")
+    check("date updated", get(db, oid)["date"] == "2026-02-20")
+    oid2 = create(db, cid, "Autre", 500, order_date="")
+    check("empty date -> today",
+          get(db, oid2)["date"] == _date.today().isoformat())
+
+    # -- delivery companies: preset + custom saved + used-on-order
+    base = settings_store.delivery_companies(db)
+    check("presets listed", "Yalidine" in base and "Autre" in base)
+    check("company used on order listed", "SpeedEx" in base)
+    lst = settings_store.add_delivery_company(db, "SpeedEx")   # already known
+    check("no duplicate company", lst.count("SpeedEx") == 1)
+    lst = settings_store.add_delivery_company(db, "Kazi Tour")
+    check("custom company added", "Kazi Tour" in lst)
+    check("custom company persisted (settings)",
+          "Kazi Tour" in settings_store.delivery_companies(
+              Database(db.path)))     # reopen the same file
+    check("add empty ignored",
+          settings_store.add_delivery_company(db, "  ") == lst)
+
+
 def test_reports(tmp: Path) -> None:
     print("[reports]")
     db = make_db(tmp)
@@ -478,6 +523,7 @@ def main() -> int:
     test_customers_and_trust(tmp)
     test_phone_risk(tmp)
     test_orders_and_aggregates(tmp)
+    test_order_date_and_companies(tmp)
     test_reports(tmp)
     test_inquiries(tmp)
     test_blacklist_and_hma(tmp)
