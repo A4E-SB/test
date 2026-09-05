@@ -38,18 +38,18 @@ class OrdersPage(ctk.CTkFrame):
                       command=self.new_order).pack(side="right")
         # v1.1 actions live in the TOP toolbar — the bottom status bar is
         # already full with the 12 status buttons (v1.1.0 clipped them)
-        ctk.CTkButton(top, text=app.t("dim_btn"), height=36, fg_color=config.COLOR_BG_2,
-                      hover_color=config.COLOR_BG_3,
+        ctk.CTkButton(top, text=app.t("dim_btn"), height=36, fg_color=config.COLOR_BG_3,
+                      hover_color="#3a4150",
                       command=self.import_statuses).pack(side="right", padx=4)
-        ctk.CTkButton(top, text=app.t("me_btn"), height=36, fg_color=config.COLOR_BG_2,
-                      hover_color=config.COLOR_BG_3,
+        ctk.CTkButton(top, text=app.t("me_btn"), height=36, fg_color=config.COLOR_BG_3,
+                      hover_color="#3a4150",
                       command=self.bulk_edit).pack(side="right", padx=4)
-        ctk.CTkButton(top, text=app.t("man_btn"), height=36, fg_color=config.COLOR_BG_2,
-                      hover_color=config.COLOR_BG_3,
+        ctk.CTkButton(top, text=app.t("man_btn"), height=36, fg_color=config.COLOR_BG_3,
+                      hover_color="#3a4150",
                       command=self.make_manifest).pack(side="right", padx=4)
 
         # ---- filters ------------------------------------------------------------
-        filters = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        filters = W.card(self)
         filters.grid(row=1, column=0, sticky="ew", padx=8, pady=(4, 6))
         status_labels = [app.t("all")] + [t(f"st_{s}", app.lang) for s in config.ALL_STATUSES]
         self.status_keys = [""] + config.ALL_STATUSES
@@ -79,18 +79,19 @@ class OrdersPage(ctk.CTkFrame):
         self.f_to.pack(side="left", padx=2, pady=8)
 
         # ---- list ----------------------------------------------------------------
-        list_frame = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        list_frame = W.card(self)
         list_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=(2, 8))
         list_frame.grid_columnconfigure(0, weight=1)
         list_frame.grid_rowconfigure(0, weight=1)
         cols = [("id", "#", 46), ("date", app.t("date"), 88),
                 ("customer", app.t("ord_customer"), 170), ("phone", app.t("phone"), 118),
                 ("product", app.t("product"), 150), ("price", app.t("price"), 88),
-                ("dep", app.t("dep_received_lbl"), 80),
-                ("status", app.t("status"), 104), ("delivery", app.t("delivery_method"), 110),
+                ("dep", app.t("col_deposit"), 78),
+                ("status", app.t("status"), 110), ("delivery", app.t("col_delivery"), 92),
                 ("wilaya", app.t("wilaya"), 120)]
         self.tree = make_tree(list_frame, cols, height=17)
         self.tree.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        W.bind_tree_tooltips(self.tree)   # full text on hover if clipped
         self.tree.bind("<Double-1>", lambda e: self.edit_order())
         self.tree.bind("<Delete>", lambda e: self.delete_order())
 
@@ -102,7 +103,8 @@ class OrdersPage(ctk.CTkFrame):
         self.status_btns = []
         for s in config.ALL_STATUSES:
             color = config.STATUS_COLORS.get(s, config.COLOR_BG_3)
-            btn = ctk.CTkButton(bar, text=t(f"st_{s}", app.lang), height=26, width=88,
+            btn = ctk.CTkButton(bar, text=f"●  {t(f'st_{s}', app.lang)}",
+                                height=26, width=88,
                                 fg_color=config.COLOR_BG_3, hover_color=color,
                                 text_color=color, font=F(10, "bold"),
                                 command=lambda st=s: self.set_status(st))
@@ -138,7 +140,7 @@ class OrdersPage(ctk.CTkFrame):
                 o["id"], o["date"], o["customer_name"], o["phone"], o["product"],
                 f"{o['price']:,.0f}".replace(",", " "),
                 (f"{o['deposit']:,.0f}".replace(",", " ") if o["deposit"] else "—"),
-                t(f"st_{o['status']}", lang),
+                W.status_badge_text(o["status"], lang),
                 o["delivery_method"], o["wilaya"]), tags=(row_tag(o["status"]),))
         total = sum(r["price"] for r in rows)
         self.count_lbl.configure(

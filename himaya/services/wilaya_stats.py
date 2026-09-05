@@ -51,14 +51,26 @@ def funnel(db: Database) -> dict:
     counts = {s: 0 for s in config.ALL_STATUSES}
     for r in db.query("SELECT status, COUNT(*) n FROM orders GROUP BY status"):
         counts[r["status"]] = r["n"]
-    order = ["pending", "confirmed", "waiting_deposit", "shipped", "delivered", "paid"]
-    # cumulative: stage reached = status is that stage or a LATER good one
-    later = {"pending": order, "confirmed": order[1:], "waiting_deposit": order[2:],
-             "shipped": order[3:], "delivered": order[4:], "paid": order[5:]}
+
+    # v1.2 fix: a stage is "reached" if the order progressed AT LEAST that
+    # far — including orders that later went bad (a ghosted order DID reach
+    # "shipped"). The old mapping counted bad statuses nowhere, which made
+    # Pending == Confirmed and inflated nothing after. waiting_deposit is a
+    # parallel branch, not a sequential stage, so it is not a funnel bar.
+    reached = {
+        "pending": set(counts),                       # every order starts here
+        "confirmed": {"confirmed", "waiting_deposit", "shipped", "delivered",
+                      "paid", "ghosted", "refused", "phone_off", "fake_payment"},
+        "shipped": {"shipped", "delivered", "paid", "ghosted", "refused",
+                    "phone_off"},
+        "delivered": {"delivered", "paid"},
+        "paid": {"paid"},
+    }
+    order = ["pending", "confirmed", "shipped", "delivered", "paid"]
     total = sum(counts.values())
     stages = []
     for stage in order:
-        n = sum(counts.get(s2, 0) for s2 in later[stage])
+        n = sum(counts.get(s2, 0) for s2 in reached[stage])
         stages.append({"stage": stage, "count": n,
                        "pct": (n / total * 100.0) if total else 0.0})
     return {"total": total, "stages": stages}

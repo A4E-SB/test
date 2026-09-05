@@ -5,6 +5,7 @@ a canvas bar-chart and the scam-alert popup.
 
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -16,11 +17,70 @@ from ..i18n import t
 # ---------------------------------------------------------------------------
 # Fonts
 # ---------------------------------------------------------------------------
-FONT_FAMILY = "Segoe UI"
+LATIN_FONT_FAMILY = "Segoe UI"
+ARABIC_FONT_FAMILY = "Tajawal"        # bundled (OFL) in assets/fonts
+FONT_FAMILY = LATIN_FONT_FAMILY       # swapped by set_ui_font() on language
+
+_arabic_font_loaded = None            # cached result of load_arabic_font()
+
+
+def load_arabic_font() -> bool:
+    """
+    Register the bundled Tajawal TTFs privately (session-only, no install)
+    so Arabic renders with a real Arabic-native typeface instead of the
+    OS fallback. Windows-only API; anywhere else the app keeps the Latin
+    family (Arabic then falls back to the system Arabic font).
+    """
+    global _arabic_font_loaded
+    if _arabic_font_loaded is not None:
+        return _arabic_font_loaded
+    fonts_dir = config.ASSETS_DIR / "fonts"
+    files = sorted(fonts_dir.glob("Tajawal-*.ttf")) if fonts_dir.exists() else []
+    ok = False
+    if files and sys.platform == "win32":
+        try:
+            import ctypes
+            for f in files:
+                # FR_PRIVATE = 0x10: available to this process only
+                ctypes.windll.gdi32.AddFontResourceExW(str(f), 0x10, 0)
+            ok = True
+        except Exception:
+            ok = False
+    _arabic_font_loaded = ok
+    return ok
+
+
+def set_ui_font(arabic: bool) -> None:
+    """
+    Point every NEWLY created widget at the right family. Called on launch
+    and on language switch (the UI is fully rebuilt then, so one global is
+    enough). Tajawal also covers Latin glyphs, so mixed FR/AR strings stay
+    consistent.
+    """
+    global FONT_FAMILY
+    if arabic and load_arabic_font():
+        FONT_FAMILY = ARABIC_FONT_FAMILY
+    else:
+        FONT_FAMILY = LATIN_FONT_FAMILY
 
 
 def F(size: int = 13, weight: str = "normal") -> ctk.CTkFont:
     return ctk.CTkFont(family=FONT_FAMILY, size=size, weight=weight)
+
+
+# ---------------------------------------------------------------------------
+# Card surface (single source of truth for elevated containers)
+# ---------------------------------------------------------------------------
+
+def card(master, **kwargs) -> ctk.CTkFrame:
+    """
+    Elevated panel: lighter surface + thin 1px outline so cards read as
+    cards on the page background (v1.2 UX pass — was same shade as page).
+    """
+    kwargs.setdefault("corner_radius", 12)
+    return ctk.CTkFrame(master, fg_color=config.COLOR_CARD,
+                        border_width=1, border_color=config.COLOR_BORDER,
+                        **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +113,10 @@ def make_tree(master, columns: list[tuple[str, str, int]], rid: bool = False,
                         style="Himaya.Treeview", selectmode="extended")
     for cid, heading, width in columns:
         tree.heading(cid, text=heading)
-        tree.column(cid, width=width, anchor="w")
+        # minsize = declared width: extra window space stretches the last
+        # columns, but a smaller window NEVER squeezes a column under its
+        # content width (hard clipping was the v1.1 bug)
+        tree.column(cid, width=width, minsize=width, anchor="w", stretch=True)
     # row color tags
     tree.tag_configure("danger", foreground=config.COLOR_RED)
     tree.tag_configure("caution", foreground=config.COLOR_YELLOW)
@@ -109,16 +172,21 @@ def wheel_combo(combo, values: list[str], wrap: bool = True) -> None:
 class StatCard(ctk.CTkFrame):
     def __init__(self, master, title: str, value: str = "—",
                  color: str = config.COLOR_ACCENT, sub: str = "", on_click=None):
-        super().__init__(master, fg_color=config.COLOR_BG_2, corner_radius=12)
+        super().__init__(master, fg_color=config.COLOR_CARD, corner_radius=12,
+                         border_width=1, border_color=config.COLOR_BORDER)
         self._on_click = on_click
         self.grid_columnconfigure(0, weight=1)
         bar = ctk.CTkFrame(self, fg_color=color, width=4, corner_radius=2)
         bar.grid(row=0, column=0, rowspan=3, sticky="ns", padx=(8, 0), pady=10)
         self.title_lbl = ctk.CTkLabel(self, text=title, text_color=config.COLOR_FG_DIM,
-                                      font=F(11), justify="left", anchor="w")
+                                      font=F(11), justify="left", anchor="w",
+                                      wraplength=200)
         self.title_lbl.grid(row=0, column=1, sticky="ew", padx=(10, 12), pady=(12, 0))
+        # wraplength: a long amount wraps to a second line instead of being
+        # clipped mid-number (v1.2 UX pass)
         self.value_lbl = ctk.CTkLabel(self, text=value, text_color=color,
-                                      font=F(24, "bold"), justify="left", anchor="w")
+                                      font=F(22, "bold"), justify="left",
+                                      anchor="w", wraplength=210)
         self.value_lbl.grid(row=1, column=1, sticky="ew", padx=(10, 12))
         self.sub_lbl = ctk.CTkLabel(self, text=sub, text_color=config.COLOR_FG_DIM,
                                     font=F(10), justify="left", anchor="w")
@@ -148,11 +216,18 @@ class StatCard(ctk.CTkFrame):
 
 
 # ---------------------------------------------------------------------------
-# Tag pill + status colors (maps live in config, re-exported for convenience)
+# Unified STATUS badge system (v1.2): ONE component everywhere a status
+# appears. Widget contexts use StatusPill; table cells (ttk.Treeview cannot
+# host widgets) use the same token source rendered as "●  Label" text.
 # ---------------------------------------------------------------------------
 
 TAG_COLORS = config.TAG_COLORS
 STATUS_COLORS = config.STATUS_COLORS
+
+
+def status_badge_text(status: str, lang: str) -> str:
+    """Status for a TABLE cell: colored-dot form of the same badge."""
+    return f"●  {t(f'st_{status}', lang)}"
 
 
 class TagPill(ctk.CTkLabel):
@@ -162,6 +237,61 @@ class TagPill(ctk.CTkLabel):
         super().__init__(master, text=text, fg_color=color, text_color="#101216",
                          corner_radius=10, font=F(10, "bold"), height=22, padx=2)
         self.configure(anchor="center")
+
+
+class StatusPill(ctk.CTkLabel):
+    """
+    The status badge: rounded chip in the status color. Same colors/labels
+    as the Orders legend chips and the table-cell dot form — one system.
+    """
+
+    def __init__(self, master, status: str, lang: str):
+        super().__init__(master, text=t(f"st_{status}", lang),
+                         fg_color=STATUS_COLORS.get(status, config.COLOR_BG_3),
+                         text_color="#101216", corner_radius=10,
+                         font=F(10, "bold"), height=22, padx=6)
+        self.configure(anchor="center")
+
+
+# ---------------------------------------------------------------------------
+# Unified TRUST indicator (v1.2): the Labels icon set everywhere —
+#   ✓ ≥80 (trusted)   ⚠ 40-79 (caution)   🔒 <40 (risk)
+# ---------------------------------------------------------------------------
+
+def trust_glyph(score: int) -> tuple[str, str]:
+    """(icon, color) for a trust score — single source of truth."""
+    score = int(score or 0)
+    if score >= config.TRUST_TRUSTED:
+        return "✓", config.COLOR_GREEN
+    if score >= config.TRUST_CAUTION:
+        return "⚠", config.COLOR_YELLOW
+    return "🔒", config.COLOR_RED
+
+
+def trust_badge_text(score: int) -> str:
+    """Trust for a TABLE cell: '✓ 85' (icon + score, no raw x/100)."""
+    icon, _color = trust_glyph(score)
+    return f"{icon} {int(score)}"
+
+
+class TrustBadge(ctk.CTkFrame):
+    """Trust header badge: big icon + score + colored label."""
+
+    def __init__(self, master, score: int, lang: str = "fr"):
+        super().__init__(master, fg_color="transparent")
+        icon, color = trust_glyph(score)
+        self.icon_lbl = ctk.CTkLabel(self, text=icon, font=F(24, "bold"),
+                                     text_color=color)
+        self.icon_lbl.grid(row=0, column=0, rowspan=2, padx=(0, 8))
+        self.score_lbl = ctk.CTkLabel(self, text=f"{int(score)}/100",
+                                      font=F(20, "bold"), text_color=color)
+        self.score_lbl.grid(row=0, column=1, sticky="w")
+        level = ("cust_trust_high" if score >= config.TRUST_TRUSTED else
+                 "cust_trust_mid" if score >= config.TRUST_CAUTION else
+                 "cust_trust_low")
+        self.level_lbl = ctk.CTkLabel(self, text=t(level, lang), font=F(10),
+                                      text_color=config.COLOR_FG_DIM)
+        self.level_lbl.grid(row=1, column=1, sticky="w")
 
 
 def tags_frame(master, tags: list[str], lang: str) -> ctk.CTkFrame:
@@ -306,6 +436,87 @@ class FunnelChart(ctk.CTkCanvas):
             self.create_text(label_w + bw + 8, y + bh / 2, anchor="w",
                              text=f"{s['count']}  ({s['pct']:.0f}%)",
                              fill=config.COLOR_FG, font=(FONT_FAMILY, 10, "bold"))
+
+
+# ---------------------------------------------------------------------------
+# Empty state (v1.2): icon + short message instead of a bare dash
+# ---------------------------------------------------------------------------
+
+class EmptyState(ctk.CTkFrame):
+    """Centered 'nothing here yet' block: icon, message, optional hint."""
+
+    def __init__(self, master, icon: str, message: str, hint: str = ""):
+        super().__init__(master, fg_color="transparent")
+        self.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(self, text=icon, font=F(40)).grid(row=0, column=0, pady=(0, 4))
+        ctk.CTkLabel(self, text=message, font=F(14, "bold"),
+                     text_color=config.COLOR_FG_DIM).grid(row=1, column=0)
+        if hint:
+            ctk.CTkLabel(self, text=hint, font=F(11),
+                         text_color=config.COLOR_FG_DIM, wraplength=340,
+                         justify="left").grid(row=2, column=0, pady=(2, 0))
+
+
+# ---------------------------------------------------------------------------
+# Cell tooltip for tables: full text on hover when a column is too narrow
+# (general truncation answer — data is ellipsized by tk, tooltip restores it)
+# ---------------------------------------------------------------------------
+
+class _TreeToolTip:
+    def __init__(self, tree):
+        self.tree = tree
+        self.win = None
+        self._job = None
+        tree.bind("<Motion>", self._motion, add="+")
+        tree.bind("<Leave>", self._hide, add="+")
+
+    def _motion(self, event) -> None:
+        self._hide()
+        try:
+            row = self.tree.identify_row(event.y)
+            col = self.tree.identify_column(event.x)
+            if not row or not col:
+                return
+            idx = int(col.replace("#", "")) - 1
+            values = self.tree.item(row, "values")
+            if idx < 0 or idx >= len(values):
+                return
+            text = str(values[idx])
+            width = self.tree.column(col, "width")
+            # ~7 px per char at font 11 — only show when actually clipped
+            if len(text) * 7 <= width:
+                return
+            self._job = self.tree.after(450, lambda: self._show(text, event))
+        except Exception:
+            pass
+
+    def _show(self, text, event) -> None:
+        self._job = None
+        if self.win is not None and self.win.winfo_exists():
+            self.win.destroy()
+        self.win = tw = ctk.CTkToplevel(self.tree)
+        tw.overrideredirect(True)
+        tw.attributes("-topmost", True)
+        ctk.CTkLabel(tw, text=text, font=F(11), justify="left", wraplength=320,
+                     fg_color=config.COLOR_BG_3, corner_radius=6,
+                     text_color=config.COLOR_FG, padx=8, pady=4).pack()
+        tw.geometry(f"+{event.x_root + 12}+{event.y_root + 14}")
+
+    def _hide(self, _event=None) -> None:
+        if self._job is not None:
+            try:
+                self.tree.after_cancel(self._job)
+            except Exception:
+                pass
+            self._job = None
+        if self.win is not None and self.win.winfo_exists():
+            self.win.destroy()
+            self.win = None
+
+
+def bind_tree_tooltips(tree) -> None:
+    """Attach hover tooltips showing full cell text when clipped."""
+    _TreeToolTip(tree)
 
 
 # ---------------------------------------------------------------------------

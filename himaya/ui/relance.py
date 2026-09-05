@@ -12,10 +12,11 @@ import tkinter as tk
 import customtkinter as ctk
 
 from .. import config
-from ..i18n import t
 from ..models import settings_store
 from ..services import relance
-from .widgets import F, Debouncer, copy_to_clipboard, make_tree, row_tag
+from .widgets import (F, Debouncer, copy_to_clipboard, make_tree,
+                      row_tag, status_badge_text)
+from .widgets import card as surface
 from .widgets import rtl_anchor, rtl_side
 
 
@@ -32,7 +33,7 @@ class RelancePage(ctk.CTkFrame):
                  anchor=rtl_anchor(app)).pack(side=rtl_side(app))
 
         # threshold row
-        thr = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        thr = surface(self)
         thr.grid(row=1, column=0, sticky="ew", padx=8, pady=(4, 6))
         ctk.CTkLabel(thr, text=app.t("rel_desc"), font=F(11),
                      text_color=config.COLOR_FG_DIM, wraplength=760,
@@ -52,7 +53,7 @@ class RelancePage(ctk.CTkFrame):
             self._save_threshold))
 
         # stuck orders list
-        list_frame = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        list_frame = surface(self)
         list_frame.grid(row=2, column=0, sticky="nsew", padx=8, pady=(2, 8))
         list_frame.grid_columnconfigure(0, weight=1)
         list_frame.grid_rowconfigure(0, weight=1)
@@ -99,7 +100,7 @@ class RelancePage(ctk.CTkFrame):
                 r["id"], r["days_waiting"], r["date"], r["customer_name"],
                 r["phone"], r["product"],
                 f"{r['price']:,.0f}".replace(",", " "),
-                t(f"st_{r['status']}", lang)), tags=(row_tag(r["status"]),))
+                status_badge_text(r["status"], lang)), tags=(row_tag(r["status"]),))
         self.count_lbl.configure(
             text=self.app.t("rel_none") if not rows else f"{len(rows)} 🔔")
 

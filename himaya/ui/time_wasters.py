@@ -40,7 +40,8 @@ class TimeWastersPage(ctk.CTkFrame):
                                           padx=16, pady=(0, 6))
 
         # ---------------- left: log + stats + suggestions ----------------
-        left = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        left = ctk.CTkFrame(self, fg_color=config.COLOR_CARD, corner_radius=12,
+                            border_width=1, border_color=config.COLOR_BORDER)
         left.grid(row=1, column=0, sticky="nsew", padx=(16, 6), pady=(0, 16))
         left.grid_columnconfigure(0, weight=1)
 
@@ -88,7 +89,8 @@ class TimeWastersPage(ctk.CTkFrame):
         self.tree.pack(fill="both", expand=True, padx=10, pady=(4, 10))
 
         # ---------------- right: templates --------------------------------
-        right = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        right = ctk.CTkFrame(self, fg_color=config.COLOR_CARD, corner_radius=12,
+                             border_width=1, border_color=config.COLOR_BORDER)
         right.grid(row=1, column=1, sticky="nsew", padx=(6, 16), pady=(0, 16))
         right.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(right, text=app.t("tw_templates"), font=F(15, "bold"),

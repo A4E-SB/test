@@ -61,8 +61,11 @@ BACKUP_DIR.mkdir(exist_ok=True)
 # Theme / colors (dark theme, semantic color coding)
 # --------------------------------------------------------------------------
 COLOR_BG = "#14161a"          # window background
-COLOR_BG_2 = "#1e2128"        # cards / sidebar
+COLOR_BG_2 = "#1e2128"        # sidebar / table rows
 COLOR_BG_3 = "#2a2e37"        # inputs, hover
+COLOR_CARD = "#232730"        # elevated surfaces — lighter than the page so
+                              # cards read as cards (v1.2 UX pass)
+COLOR_BORDER = "#323845"      # thin 1px card outline
 COLOR_FG = "#f2f4f8"          # main text
 COLOR_FG_DIM = "#9aa3b2"      # secondary text
 COLOR_ACCENT = "#3b82f6"      # primary action blue

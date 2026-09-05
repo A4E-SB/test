@@ -14,7 +14,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..database.db import Database
-from ..i18n import LANG_NAMES, next_lang, t
+from ..i18n import t
 from ..models import settings_store
 from . import widgets as W
 from .widgets import F
@@ -59,6 +59,8 @@ class HimayaApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
         super().__init__(fg_color=config.COLOR_BG)
         self.dnd_enabled = _enable_dnd(self)   # optional drag & drop
+        # typeface: Tajawal (bundled) when the UI is Arabic, Segoe UI otherwise
+        W.set_ui_font(arabic=self.lang == "ar")
         self.db = db
         self.lang = settings_store.get_setting(db, "language", "fr")
         self.page_name: str | None = None
@@ -165,15 +167,17 @@ class HimayaApp(ctk.CTk):
         ctk.CTkLabel(brand, text="Himaya", font=F(24, "bold"),
                      text_color=config.COLOR_ACCENT).pack(
             side="left" if logo_first else "right")
-        ctk.CTkLabel(self.sidebar,
-                     text=f"حماية — {t('offline_badge', self.lang)}",
-                     font=F(11), text_color=config.COLOR_FG_DIM
-                     ).grid(row=1, column=0, padx=22, pady=(0, 14),
+        # one translated string — never concatenate Arabic + Latin here
+        # (v1.0 tagline mixed both and rendered as "100 — حماية% offline")
+        ctk.CTkLabel(self.sidebar, text=t("tagline", self.lang),
+                     font=F(10), text_color=config.COLOR_FG_DIM, wraplength=190,
+                     justify="right" if self.rtl else "left"
+                     ).grid(row=1, column=0, padx=18, pady=(0, 12),
                             sticky="e" if self.rtl else "w")
 
         # global search button (Ctrl+K)
         search_btn = ctk.CTkButton(
-            self.sidebar, text="🔎 " + t("gs_title", self.lang), anchor="c",
+            self.sidebar, text="🔍 " + t("gs_title", self.lang), anchor="c",
             font=F(12), height=32, corner_radius=8, fg_color=config.COLOR_BG_3,
             hover_color=config.COLOR_BG, text_color=config.COLOR_FG,
             command=self.open_global_search)
@@ -189,15 +193,8 @@ class HimayaApp(ctk.CTk):
             btn.grid(row=i, column=0, sticky="ew", padx=12, pady=2)
             self._nav_buttons[key] = btn
 
-        # language quick switch at the bottom: FR -> EN -> AR cycle,
-        # the button always shows the NEXT language name
-        lang_btn = ctk.CTkButton(
-            self.sidebar,
-            text="🌐 " + LANG_NAMES[next_lang(self.lang)],
-            font=F(13), height=36, fg_color=config.COLOR_BG_3,
-            hover_color=config.COLOR_BG, text_color=config.COLOR_FG,
-            command=self.toggle_language)
-        lang_btn.grid(row=len(PAGES) + 3, column=0, sticky="ew", padx=12, pady=(6, 4))
+        # v1.2: the floating language button is GONE — language is switched
+        # from Settings only (one switcher, not two)
         ctk.CTkLabel(self.sidebar, text=f"Himaya v{config.APP_VERSION}",
                      font=F(10), text_color=config.COLOR_FG_DIM
                      ).grid(row=len(PAGES) + 4, column=0, padx=12, pady=(0, 12))
@@ -277,6 +274,7 @@ class HimayaApp(ctk.CTk):
     def set_language(self, lang: str) -> None:
         settings_store.set_setting(self.db, "language", lang)
         self.lang = lang
+        W.set_ui_font(arabic=lang == "ar")   # family for all rebuilt widgets
         # cached pages hold translated strings -> rebuild them lazily.
         # Order matters (v1.1.2): DETACH each page before destroying it —
         # calling grid_remove() on a destroyed frame raises TclError, and
@@ -320,9 +318,6 @@ class HimayaApp(ctk.CTk):
         self._build_sidebar()
         self.show_page(self.page_name or "dashboard")
 
-    def toggle_language(self) -> None:
-        self.set_language(next_lang(self.lang))
-
     # ------------------------------------------------------------------ search
 
     def open_global_search(self) -> None:
@@ -352,22 +347,56 @@ class HimayaApp(ctk.CTk):
         return t(key, self.lang, **kwargs)
 
     def toast(self, message: str, kind: str = "info") -> None:
-        """Small transient status popup (bottom-right)."""
+        """
+        Small transient status popup (bottom-right). The window is created
+        ONCE and reused: spawning a fresh Toplevel per click is one of the
+        slowest tk operations (this was announced in v1.1.4 but the patch
+        never landed — applied for real in v1.2).
+        """
         color = {"info": config.COLOR_ACCENT, "ok": config.COLOR_GREEN,
                  "warn": config.COLOR_ORANGE, "err": config.COLOR_RED}.get(kind,
                                                                            config.COLOR_ACCENT)
-        popup = ctk.CTkToplevel(self)
-        popup.overrideredirect(True)
-        popup.attributes("-topmost", True)
-        frame = ctk.CTkFrame(popup, fg_color=config.COLOR_BG_2, corner_radius=10,
-                             border_width=1, border_color=color)
-        frame.pack(padx=2, pady=2)
-        ctk.CTkLabel(frame, text=message, font=F(12), text_color=color,
-                     wraplength=380, justify="left").pack(padx=16, pady=10)
-        x = self.winfo_rootx() + self.winfo_width() - 420
-        y = self.winfo_rooty() + self.winfo_height() - 110
-        popup.geometry(f"+{max(10, x)}+{max(10, y)}")
-        popup.after(3200, popup.destroy)
+        win = getattr(self, "_toast_win", None)
+        alive = False
+        if win is not None:
+            try:
+                alive = bool(win.winfo_exists())
+            except Exception:
+                alive = True    # headless test stubs: assume reusable
+        if not alive:
+            self._toast_win = win = ctk.CTkToplevel(self)
+            win.overrideredirect(True)
+            win.attributes("-topmost", True)
+            self._toast_frame = ctk.CTkFrame(win, fg_color=config.COLOR_CARD,
+                                             corner_radius=10, border_width=1)
+            self._toast_frame.pack(padx=2, pady=2)
+            self._toast_lbl = ctk.CTkLabel(self._toast_frame, text="", font=F(12),
+                                           wraplength=380, justify="left")
+            self._toast_lbl.pack(padx=16, pady=10)
+        try:
+            self._toast_frame.configure(border_color=color)
+            self._toast_lbl.configure(text=message, text_color=color)
+            x = self.winfo_rootx() + self.winfo_width() - 420
+            y = self.winfo_rooty() + self.winfo_height() - 110
+            win.geometry(f"+{max(10, x)}+{max(10, y)}")
+            win.deiconify()
+        except Exception:
+            pass   # headless test stubs: constructing is all we verify
+        if getattr(self, "_toast_job", None) is not None:
+            try:
+                self.after_cancel(self._toast_job)
+            except Exception:
+                pass
+        self._toast_job = self.after(3200, self._hide_toast)
+
+    def _hide_toast(self) -> None:
+        self._toast_job = None
+        win = getattr(self, "_toast_win", None)
+        if win is not None:
+            try:
+                win.withdraw()
+            except Exception:
+                pass
 
     def check_phone(self, phone: str, on_block=None, on_continue=None,
                     show_block_btn: bool = False) -> dict:

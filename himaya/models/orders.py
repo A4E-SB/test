@@ -90,7 +90,7 @@ def list_orders(db: Database, status: str = "", wilaya: str = "",
                 customer_id: int | None = None, limit: int = 500) -> list:
     """Filtered order list joined with the customer name/phone."""
     sql = ("SELECT o.*, c.name AS customer_name, c.phone AS phone, c.tags AS tags, "
-           "p.cost_price AS product_cost "
+           "c.trust_score AS trust_score, p.cost_price AS product_cost "
            "FROM orders o JOIN customers c ON c.id = o.customer_id "
            "LEFT JOIN products p ON p.id = o.product_id WHERE 1=1")
     params: list = []

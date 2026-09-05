@@ -17,7 +17,9 @@ from ..i18n import t, month_name
 from ..models import templates_store
 from ..services import hma, reports, wilaya_stats
 from . import widgets as W
-from .widgets import F, FunnelChart, StatCard, copy_to_clipboard, make_tree
+from .widgets import (F, FunnelChart, StatCard,
+                      copy_to_clipboard, make_tree, trust_badge_text)
+from .widgets import card as surface
 
 
 class ReportsPage(ctk.CTkScrollableFrame):
@@ -31,7 +33,7 @@ class ReportsPage(ctk.CTkScrollableFrame):
                                                     sticky="ew", padx=16, pady=(10, 2))
 
         # ---- period selector ---------------------------------------------------
-        bar = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        bar = surface(self)
         bar.grid(row=1, column=0, columnspan=4, sticky="ew", padx=16, pady=(4, 8))
         self.month_menu = ctk.CTkOptionMenu(
             bar, width=140, values=[month_name(m, app.lang) for m in range(1, 13)],
@@ -63,13 +65,13 @@ class ReportsPage(ctk.CTkScrollableFrame):
         self.c_costs = StatCard(self, app.t("rep_costs"), color=config.COLOR_ORANGE)
         self.c_saved = StatCard(self, app.t("rep_saved"), color=config.COLOR_GREEN)
         self.c_completion = StatCard(self, app.t("rep_completion"), color=config.COLOR_ACCENT)
-        self.c_orders = StatCard(self, app.t("rep_orders"), color=config.COLOR_FG_DIM)
+        self.c_orders = StatCard(self, app.t("rep_orders"), color=config.COLOR_ACCENT)
         for i, card in enumerate([self.c_costs, self.c_saved, self.c_completion,
                                   self.c_orders]):
             card.grid(row=4, column=i, sticky="nsew", padx=6, pady=4)
 
         # ---- funnel + best customers -----------------------------------------------
-        fun = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        fun = surface(self)
         fun.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=6, pady=(8, 4))
         fun.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(fun, text=app.t("fun_title"), font=F(14, "bold"),
@@ -77,7 +79,7 @@ class ReportsPage(ctk.CTkScrollableFrame):
         self.funnel = FunnelChart(fun, lang=app.lang, height=230)
         self.funnel.grid(row=1, column=0, sticky="ew", padx=10, pady=(2, 12))
 
-        bc = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        bc = surface(self)
         bc.grid(row=5, column=2, columnspan=2, sticky="nsew", padx=6, pady=(8, 4))
         bc.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(bc, text="🏅 " + app.t("bc_title"), font=F(14, "bold"),
@@ -86,7 +88,7 @@ class ReportsPage(ctk.CTkScrollableFrame):
         self.bc_box.grid(row=1, column=0, sticky="nsew", padx=10, pady=(2, 12))
 
         # ---- wilaya stats ------------------------------------------------------------
-        wst = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        wst = surface(self)
         wst.grid(row=6, column=0, columnspan=2, sticky="nsew", padx=6, pady=4)
         wst.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(wst, text=app.t("wst_title"), font=F(14, "bold"),
@@ -99,7 +101,7 @@ class ReportsPage(ctk.CTkScrollableFrame):
         self.wtree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(2, 12))
 
         # ---- loss breakdown ----------------------------------------------------------
-        bd = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        bd = surface(self)
         bd.grid(row=6, column=2, columnspan=2, sticky="nsew", padx=6, pady=4)
         bd.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(bd, text=app.t("rep_breakdown"), font=F(14, "bold"),
@@ -146,17 +148,21 @@ class ReportsPage(ctk.CTkScrollableFrame):
         for c in wilaya_stats.best_customers(db, limit=5):
             row = ctk.CTkFrame(self.bc_box, fg_color="transparent")
             row.pack(fill="x", pady=3)
+            row.grid_columnconfigure(0, weight=1)   # left side takes the slack:
+            # the name wraps instead of pushing the stats out of the card
             stars = "★" * min(5, max(1, c["bought"]))
             ctk.CTkLabel(row, text=f"{stars} {c['name']} — {c['phone']}",
-                         font=F(12), anchor="w").pack(side="left")
-            ctk.CTkLabel(row, text=f"{c['bought']} {self.app.t('bc_bought')} • "
-                                   f"{config.fmt_money(c['revenue'], lang)}",
-                         font=F(11), text_color=config.COLOR_FG_DIM
-                         ).pack(side="right", padx=(0, 6))
+                         font=F(12), anchor="w", wraplength=240, justify="left"
+                         ).grid(row=0, column=0, sticky="w")
             ctk.CTkButton(row, text="📋", width=34, height=26,
                           fg_color=config.COLOR_BG_3, hover_color=config.COLOR_BG,
                           command=lambda cc=c: self.copy_loyalty(cc)
-                          ).pack(side="right")
+                          ).grid(row=0, column=1, sticky="e", padx=(6, 0))
+            ctk.CTkLabel(row, text=f"{trust_badge_text(c['trust_score'])}  •  "
+                                   f"{c['bought']} {self.app.t('bc_bought')} • "
+                                   f"{config.fmt_money(c['revenue'], lang)}",
+                         font=F(11), text_color=config.COLOR_FG_DIM
+                         ).grid(row=0, column=2, sticky="e")
 
         # wilaya stats
         self.wtree.delete(*self.wtree.get_children())

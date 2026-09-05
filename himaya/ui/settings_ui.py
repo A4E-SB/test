@@ -146,7 +146,8 @@ class SettingsPage(ctk.CTkScrollableFrame):
     # ------------------------------------------------------------------ helpers
 
     def _card(self, row: int) -> ctk.CTkFrame:
-        card = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        card = ctk.CTkFrame(self, fg_color=config.COLOR_CARD, corner_radius=12,
+                            border_width=1, border_color=config.COLOR_BORDER)
         card.grid(row=row, column=0, sticky="ew", padx=16, pady=6)
         card.grid_columnconfigure(0, weight=1)
         return card

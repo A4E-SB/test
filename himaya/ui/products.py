@@ -15,7 +15,8 @@ import customtkinter as ctk
 
 from .. import config
 from ..models import products as products_model
-from .widgets import rtl_anchor, rtl_side, F, make_tree
+from .widgets import F, make_tree, rtl_anchor, rtl_side
+from .widgets import bind_tree_tooltips, card as surface
 
 
 class ProductsPage(ctk.CTkFrame):
@@ -33,16 +34,17 @@ class ProductsPage(ctk.CTkFrame):
                       fg_color=config.COLOR_GREEN, hover_color="#27ae60",
                       command=self.add_product).pack(side="right")
 
-        list_frame = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        list_frame = surface(self)
         list_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=(4, 8))
         list_frame.grid_columnconfigure(0, weight=1)
         list_frame.grid_rowconfigure(0, weight=1)
-        cols = [("name", app.t("prod_name"), 260), ("cost", app.t("prod_cost"), 110),
-                ("sale", app.t("prod_sale"), 110), ("margin", app.t("prod_margin"), 100),
-                ("qty", app.t("prod_qty"), 80), ("low", app.t("prod_low"), 90),
-                ("sold", app.t("prod_sold"), 90), ("status", app.t("status"), 110)]
+        cols = [("name", app.t("prod_name"), 250), ("cost", app.t("prod_cost"), 105),
+                ("sale", app.t("prod_sale"), 105), ("margin", app.t("prod_margin"), 95),
+                ("qty", app.t("prod_qty"), 75), ("low", app.t("col_low_stock"), 70),
+                ("sold", app.t("prod_sold"), 80), ("status", app.t("status"), 105)]
         self.tree = make_tree(list_frame, cols, height=18)
         self.tree.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        bind_tree_tooltips(self.tree)
         self.tree.bind("<Double-1>", lambda e: self.edit_product())
         self.tree.bind("<Delete>", lambda e: self.delete_product())
 

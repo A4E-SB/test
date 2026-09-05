@@ -14,6 +14,7 @@ from .. import config
 from ..models import blacklist as blacklist_model
 from ..services import hma
 from .widgets import F, make_tree
+from .widgets import card as surface
 
 
 class TransferPage(ctk.CTkScrollableFrame):
@@ -25,11 +26,13 @@ class TransferPage(ctk.CTkScrollableFrame):
         ctk.CTkLabel(self, text=app.t("tr_title"), font=F(22, "bold"),
                      anchor="w").grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 2))
 
-        # ---- .hma blacklist ----------------------------------------------------
-        hma_card = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        # ---- .hma blacklist (hero card: flagship offline feature) -------------
+        hma_card = ctk.CTkFrame(self, fg_color="#1c2740", corner_radius=12,
+                                border_width=1, border_color=config.COLOR_ACCENT)
         hma_card.grid(row=1, column=0, sticky="ew", padx=16, pady=6)
         hma_card.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(hma_card, text="🔐 .hma", font=F(16, "bold"),
+        ctk.CTkLabel(hma_card, text="🔌 🔐 .hma", font=F(18, "bold"),
+                     text_color=config.COLOR_ACCENT,
                      anchor="w").grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 0))
         ctk.CTkLabel(hma_card, text=app.t("tr_hma_desc"), font=F(12),
                      text_color=config.COLOR_FG_DIM, anchor="w", justify="left",
@@ -43,7 +46,7 @@ class TransferPage(ctk.CTkScrollableFrame):
                       command=self.import_hma).pack(side="left")
 
         # ---- blacklist table -------------------------------------------------------
-        bl_card = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        bl_card = surface(self)
         bl_card.grid(row=2, column=0, sticky="nsew", padx=16, pady=6)
         bl_card.grid_columnconfigure(0, weight=1)
         bl_card.grid_rowconfigure(1, weight=1)
@@ -51,19 +54,24 @@ class TransferPage(ctk.CTkScrollableFrame):
         ctk.CTkLabel(bl_card, text=self.app.t("reason_blacklisted") + " — "
                      + str(blacklist_model.count(app.db)), font=F(14, "bold"),
                      anchor="w").grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 2))
+        # icon legend: what the per-row severity icons mean (v1.2)
+        ctk.CTkLabel(bl_card, text=self.app.t("tr_legend"), font=F(10),
+                     text_color=config.COLOR_FG_DIM, anchor="w"
+                     ).grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 2))
         cols = [("phone", app.t("phone"), 130),
                 ("reason", app.t("cust_blacklist_prompt"), 380),
-                ("severity", app.t("cust_trust"), 110),
+                ("severity", app.t("tr_severity"), 110),
                 ("date", app.t("date"), 110)]
         self.tree = make_tree(bl_card, cols, height=9)
-        self.tree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(2, 6))
+        self.tree.grid(row=2, column=0, sticky="nsew", padx=10, pady=(2, 6))
+        bl_card.grid_rowconfigure(2, weight=1)
         ctk.CTkButton(bl_card, text=app.t("delete"), height=28, width=100,
                       fg_color=config.COLOR_RED, hover_color="#c0392b",
                       command=self.remove_selected).grid(row=2, column=0,
                                                          sticky="e", padx=10, pady=(0, 10))
 
         # ---- orders import/export ----------------------------------------------------
-        io_card = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        io_card = surface(self)
         io_card.grid(row=3, column=0, sticky="ew", padx=16, pady=(6, 16))
         ctk.CTkLabel(io_card, text=app.t("tr_orders_export"), font=F(16, "bold"),
                      anchor="w").grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 0))

@@ -13,10 +13,11 @@ from datetime import date
 import customtkinter as ctk
 
 from .. import config
-from ..i18n import t
 from ..models import orders as orders_model
 from ..services import labels as labels_service
-from .widgets import F, make_tree, row_tag
+from .widgets import (F, make_tree, row_tag, status_badge_text,
+                      trust_badge_text)
+from .widgets import bind_tree_tooltips, card as surface
 
 
 def generate_and_open(app, order_ids: list[int]) -> str:
@@ -53,7 +54,7 @@ class LabelsPage(ctk.CTkFrame):
                      text_color=config.COLOR_FG_DIM, anchor="w", justify="left",
                      wraplength=860).grid(row=1, column=0, sticky="ew", padx=16)
 
-        card = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        card = surface(self)
         card.grid(row=2, column=0, sticky="nsew", padx=16, pady=(6, 16))
         card.grid_columnconfigure(0, weight=1)
         card.grid_rowconfigure(1, weight=1)
@@ -85,6 +86,7 @@ class LabelsPage(ctk.CTkFrame):
                 ("risk", app.t("cust_trust"), 150)]
         self.tree = make_tree(card, cols, height=15)
         self.tree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(2, 12))
+        bind_tree_tooltips(self.tree)
         self.tree.bind("<<TreeviewSelect>>", lambda e: self.update_sel())
         self.refresh()
 
@@ -92,14 +94,14 @@ class LabelsPage(ctk.CTkFrame):
         db, lang = self.app.db, self.app.lang
         self.tree.delete(*self.tree.get_children())
         for o in orders_model.list_orders(db, limit=300):
-            tags = set((o["tags"] or "").split(",")) - {""}
-            risk = "🚨" if ("scammer" in tags or o["status"] == "fake_payment") else (
-                "⚠️" if ("ghost" in tags or "time_waster" in tags) else (
-                    "✓" if "trusted" in tags else ""))
+            # v1.2: the SAME trust icon set as Customers (score-based) —
+            # previously tag-based here, score-based there
             self.tree.insert("", "end", iid=str(o["id"]), values=(
                 o["id"], o["date"], o["customer_name"], o["phone"], o["product"],
-                f"{o['price']:,.0f}".replace(",", " "), t(f"st_{o['status']}", lang),
-                o["wilaya"], risk), tags=(row_tag(o["status"]),))
+                f"{o['price']:,.0f}".replace(",", " "),
+                status_badge_text(o["status"], lang),
+                o["wilaya"], trust_badge_text(o["trust_score"])),
+                tags=(row_tag(o["status"]),))
         self.update_sel()
 
     def update_sel(self) -> None:
@@ -107,9 +109,10 @@ class LabelsPage(ctk.CTkFrame):
         self.sel_lbl.configure(text=self.app.t("lb_selected", n=n))
 
     def select_confirmed(self) -> None:
+        # the status cell holds the badge text ("●  Label") — compare to that
+        badge = status_badge_text("confirmed", self.app.lang)
         self.tree.selection_set([iid for iid in self.tree.get_children()
-                                 if self.tree.set(iid, "status") ==
-                                 t("st_confirmed", self.app.lang)])
+                                 if self.tree.set(iid, "status") == badge])
         self.update_sel()
 
     def generate(self) -> None:

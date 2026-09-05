@@ -53,12 +53,13 @@ class DetectorPage(ctk.CTkFrame):
                 pass
 
         # ---- result panel ------------------------------------------------------
-        self.result = ctk.CTkScrollableFrame(self, fg_color=config.COLOR_BG_2,
+        self.result = ctk.CTkScrollableFrame(self, fg_color=config.COLOR_CARD,
                                              corner_radius=12)
         self.result.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 16))
         self.result.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(self.result, text="—", text_color=config.COLOR_FG_DIM
-                     ).pack(pady=40)
+        from .widgets import EmptyState
+        EmptyState(self.result, "🔍", app.t("es_detector"),
+                   app.t("es_detector_hint")).pack(expand=True, pady=30)
 
         # actions bar
         self.actions = ctk.CTkFrame(self, fg_color="transparent")

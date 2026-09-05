@@ -19,7 +19,9 @@ from ..models import orders as orders_model
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
 from . import widgets as W
-from .widgets import F, TrustBar, make_tree, tags_frame
+from .widgets import (F, TrustBadge, EmptyState, make_tree,
+                      tags_frame, trust_badge_text)
+from .widgets import card as surface
 
 
 class CustomersPage(ctk.CTkFrame):
@@ -59,7 +61,7 @@ class CustomersPage(ctk.CTkFrame):
                       command=self.add_customer).pack(side="right")
 
         # ---- list ------------------------------------------------------------
-        list_frame = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        list_frame = surface(self)
         list_frame.grid(row=1, column=0, sticky="nsew", padx=(8, 4), pady=(4, 8))
         list_frame.grid_columnconfigure(0, weight=1)
         list_frame.grid_rowconfigure(0, weight=1)
@@ -72,7 +74,7 @@ class CustomersPage(ctk.CTkFrame):
         self.tree.bind("<Double-1>", lambda e: self.edit_customer())
 
         # ---- detail ----------------------------------------------------------
-        self.detail = ctk.CTkFrame(self, fg_color=config.COLOR_BG_2, corner_radius=12)
+        self.detail = surface(self)
         self.detail.grid(row=1, column=1, sticky="nsew", padx=(4, 8), pady=(4, 8))
         self.detail.grid_columnconfigure(0, weight=1)
         self.detail_rows = ctk.CTkScrollableFrame(self.detail, fg_color="transparent")
@@ -96,7 +98,7 @@ class CustomersPage(ctk.CTkFrame):
             tags = [t(f"tag_{tg}", lang) for tg in (c["tags"] or "").split(",") if tg]
             iid = str(c["id"])
             self.tree.insert("", "end", iid=iid, values=(
-                c["name"], c["phone"], c["wilaya"], f"{c['trust_score']}/100",
+                c["name"], c["phone"], c["wilaya"], trust_badge_text(c["trust_score"]),
                 ", ".join(tags)), tags=(self._color_tag(c["trust_score"]),))
         self.render_detail()
 
@@ -119,8 +121,9 @@ class CustomersPage(ctk.CTkFrame):
             w.destroy()
         db, lang = self.app.db, self.app.lang
         if not self.selected_id:
-            ctk.CTkLabel(self.detail_rows, text=self.app.t("no_results"),
-                         text_color=config.COLOR_FG_DIM, font=F(13)).pack(pady=30)
+            EmptyState(self.detail_rows, "👤",
+                       self.app.t("es_customers"),
+                       self.app.t("es_customers_hint")).pack(expand=True, pady=30)
             return
         cust = customers_model.get(db, self.selected_id)
         if not cust:
@@ -132,9 +135,9 @@ class CustomersPage(ctk.CTkFrame):
                      text_color=config.COLOR_FG_DIM,
                      anchor="e" if lang == "ar" else "w").pack(anchor="w")
 
-        # trust bar
-        tb = TrustBar(self.detail_rows, cust["trust_score"], lang)
-        tb.pack(fill="x", pady=(8, 2))
+        # trust badge — the same icon set used in Labels/tables everywhere
+        tb = TrustBadge(self.detail_rows, cust["trust_score"], lang)
+        tb.pack(anchor="w", pady=(8, 2))
         if cust["tags"]:
             tags_frame(self.detail_rows, [x for x in cust["tags"].split(",") if x],
                        lang).pack(anchor="w", pady=4)
