@@ -15,8 +15,14 @@ from .widgets import F, center
 
 
 def ask_line(master, app) -> dict | None:
-    """Small popup asking for the pasted line; returns parsed fields."""
+    """
+    Small popup asking for the pasted line. WAITS until the user closes it,
+    then returns the parsed fields (None if cancelled / invalid).
+    v1.2.3: returned dialog.result immediately — always None, so the
+    quick-paste button in the order dialog silently did nothing.
+    """
     dialog = QuickAddDialog(master, app)
+    master.wait_window(dialog)      # block until Parse / Escape / close
     return dialog.result
 
 

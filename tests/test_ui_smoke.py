@@ -328,6 +328,31 @@ def main() -> int:
     app.set_language("fr")
     print("  ✓ old sidebar frame destroyed on switch (v1.1.3 fix)")
 
+    # ---- v1.2.3: quick-add ask_line must WAIT and return the fields --------
+    # (v1.2.0-2 bug: it returned dialog.result immediately — always None —
+    # so the ⚡ quick-paste button in the order dialog did nothing)
+    import himaya.ui.quick_add as qa_mod
+    _real_dlg_cls = qa_mod.QuickAddDialog
+
+    class _FakeQuickDlg:
+        def __init__(self, master, app):
+            self.result = None            # empty until the user clicks Parse
+
+        def user_presses_parse(self):
+            self.result = {"phone": "0555123456", "name": "Karim",
+                           "wilaya": "Sétif", "address": "cite 200"}
+
+    class _FakeMaster:
+        def wait_window(self, dlg):
+            dlg.user_presses_parse()      # simulate the interaction
+
+    qa_mod.QuickAddDialog = _FakeQuickDlg
+    parsed = qa_mod.ask_line(_FakeMaster(), app)
+    qa_mod.QuickAddDialog = _real_dlg_cls
+    assert parsed and parsed.get("phone") == "0555123456", \
+        "ask_line must wait for the user and return the parsed fields"
+    print("  ✓ quick-add ask_line waits & returns the fields (v1.2.3)")
+
     # ---- dialog constructors (no save() calls) -----------------------------
     from himaya.ui.customers import CustomerDialog
     from himaya.ui.orders import OrderDialog
