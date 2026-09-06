@@ -6,8 +6,11 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
+import time as _time
+
 from .. import config
 from ..models import blacklist, orders
+from ..services.diagnostics import add_timing as _phase
 from ..services import reports
 from .widgets import (BarChart, CompactStat, F, HeroCard, make_tree,
                       row_tag, section_header, status_badge_text,
@@ -50,6 +53,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
                              on_click=lambda: self._goto_orders("blocked"))
         self.hero.grid(row=1, column=0, columnspan=4, sticky="ew",
                        padx=8, pady=(4, 2))
+        _t0 = _time.perf_counter()
 
         # cluster: activity --------------------------------------------------
         section_header(self, app.t("sec_activity")).grid(
@@ -88,6 +92,8 @@ class DashboardPage(ctk.CTkScrollableFrame):
                                   self.card_lost, self.card_completion]):
             card.grid(row=5, column=i, sticky="nsew", padx=4, pady=3)
 
+        _phase("dash.widgets.cards", (_time.perf_counter() - _t0) * 1000)
+        _t0 = _time.perf_counter()
         # ---- chart ------------------------------------------------------------ 
         chart_frame = surface(self)
         chart_frame.grid(row=6, column=0, columnspan=3, sticky="nsew", padx=6, pady=(10, 4))
@@ -117,6 +123,8 @@ class DashboardPage(ctk.CTkScrollableFrame):
         self.alerts_box.grid(row=2, column=0, columnspan=2, sticky="nsew",
                              padx=10, pady=(2, 10))
 
+        _phase("dash.widgets.charts", (_time.perf_counter() - _t0) * 1000)
+        _t0 = _time.perf_counter()
         # ---- recent orders ----------------------------------------------------
         recent_frame = surface(self)
         recent_frame.grid(row=7, column=0, columnspan=4, sticky="nsew", padx=6, pady=(4, 12))
@@ -131,6 +139,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
         self.tree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(2, 12))
 
         self.grid_rowconfigure(7, weight=1)
+        _phase("dash.widgets.recent", (_time.perf_counter() - _t0) * 1000)
         self.refresh()
 
     # ------------------------------------------------------------------
@@ -145,6 +154,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
     def refresh(self) -> None:
         db, lang = self.app.db, self.app.lang
 
+        _qt = _time.perf_counter()
         # ---- every figure follows the selected period (v1.5 consistency) ----
         sel = "dash_today"
         for key, label in self.period_labels.items():
@@ -181,10 +191,14 @@ class DashboardPage(ctk.CTkScrollableFrame):
         self.card_completion.set(f"{orders.completion_rate(db, days):.0f}%")
         self.chip_customers.set(str(db.scalar("SELECT COUNT(*) FROM customers") or 0))
         self.chip_blacklist.set(str(blacklist.count(db)))
+        _phase("refresh.dash.queries", (_time.perf_counter() - _qt) * 1000)
 
+        _ct = _time.perf_counter()
         self.chart.set_data(reports.revenue_series(db, months=6))
+        _phase("refresh.dash.chart", (_time.perf_counter() - _ct) * 1000)
 
         # recent orders
+        _rt = _time.perf_counter()
         self.tree.delete(*self.tree.get_children())
         for o in orders.list_orders(db, limit=8):
             self.tree.insert("", "end", iid=str(o["id"]), values=(
@@ -193,6 +207,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
                 status_badge_text(o["status"], lang)),
                 tags=(row_tag(o["status"]),))
 
+        _phase("refresh.dash.recent", (_time.perf_counter() - _rt) * 1000)
         # alerts: dangerous customers + blacklist size warning
         for w in self.alerts_box.winfo_children():
             w.destroy()

@@ -154,12 +154,23 @@ ICONS = {
 }
 
 
+_CACHE: dict[tuple, Image.Image] = {}
+
+
 def render(name: str, color: str, size: int = 20) -> Image.Image:
-    """One icon as an antialiased RGBA image (4x supersampled, k-scaled)."""
+    """One icon as an antialiased RGBA image (4x supersampled, k-scaled).
+    Cached: the same (name, color, size) renders ONCE per process — weak
+    machines were paying the supersample+LANCZOS cost on every page build
+    that recreates its icons (dashboard hero/chips rebuild per visit)."""
     if name not in ICONS:
         raise KeyError(f"unknown icon: {name}")
+    key = (name, color, size)
+    if key in _CACHE:
+        return _CACHE[key]
     img = Image.new("RGBA", (GRID * SS, GRID * SS), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d._ink = color
     ICONS[name](d, SS)
-    return img.resize((size, size), Image.LANCZOS)
+    out = img.resize((size, size), Image.LANCZOS)
+    _CACHE[key] = out
+    return out

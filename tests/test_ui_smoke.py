@@ -509,13 +509,28 @@ def main() -> int:
         app._prebuild_pages()
         assert len(app._pages) == n_before, \
             "prebuild must yield right after a click"
-        assert sched and sched[0] == 150
+        assert sched and sched[0] == 300, sched   # v1.7.6 adaptive yield
         app._last_switch_ts = _t.time() - 10        # long idle -> builds again
         app._prebuild_pages()
         assert len(app._pages) == n_before + 1, "idle prebuild must resume"
+    # weak-machine mode (v1.7.6): after a >800ms build, warm-up goes
+        # slow-and-idle (2.5s spacing, 3s yield window)
+        app.__dict__["_prebuild_interval"] = 2500
+        app.__dict__["_prebuild_yield_s"] = 3.0
+        app._pages.pop("products", None)
+        n_before = len(app._pages)
+        sched.clear()
+        app._last_switch_ts = _t.time()
+        app._prebuild_pages()
+        assert len(app._pages) == n_before and sched[0] == 1250, sched
+        app._last_switch_ts = _t.time() - 10
+        app._prebuild_pages()
+        assert len(app._pages) == n_before + 1
     finally:
         app.after = _orig_after
-    print("  ✓ v1.7.2: prebuild yields to fresh clicks, resumes when idle")
+        app.__dict__.pop("_prebuild_interval", None)
+        app.__dict__.pop("_prebuild_yield_s", None)
+    print("  ✓ v1.7.6: prebuild adaptive (weak machine -> idle-only warm-up)")
 
     # ---- v1.7.1: switch micro-costs + icon contracts --------------------------
     # nav highlight updates ONLY the changed buttons, with SHARED fonts

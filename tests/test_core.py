@@ -185,6 +185,8 @@ def test_mutation_counter_and_icons(tmp: Path) -> None:
     a = render("shield", "#2FD98A").tobytes()
     b = render("shield", "#F2555A").tobytes()
     check("icons are color-parameterized", a != b)
+    check("icon renders are cached (v1.7.6)",
+          render("bell", "#2FD98A", 20) is render("bell", "#2FD98A", 20))
 
 
 def test_diagnostics_timings() -> None:

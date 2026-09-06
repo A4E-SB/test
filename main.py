@@ -29,8 +29,10 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     db_path = args.db or config.DB_PATH
 
-    db = Database(db_path)   # creates schema + runs migrations
-    seed(db)                 # default settings + reply templates (idempotent)
+    from himaya.services.diagnostics import timeit
+    with timeit("startup:database"):
+        db = Database(db_path)   # creates schema + runs migrations
+        seed(db)                 # default settings + reply templates (idempotent)
 
     if args.init_only:
         print(f"Database ready: {db_path}")
@@ -39,7 +41,8 @@ def main(argv=None) -> int:
 
     # GUI imports are kept lazy so --init-only works on headless machines.
     from himaya.ui.app import HimayaApp
-    app = HimayaApp(db)
+    with timeit("startup:window"):
+        app = HimayaApp(db)   # includes the first page build (dashboard)
 
     def on_close() -> None:
         """Rotating auto-backup (5 copies) before quitting, if enabled."""

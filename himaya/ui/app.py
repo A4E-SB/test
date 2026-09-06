@@ -303,10 +303,24 @@ class HimayaApp(ctk.CTk):
         self._last_switch_ts = time.time()     # prebuild yields to the user
         self.page_name = name
         if name not in self._pages:
-            from ..services.diagnostics import timeit
-            with timeit(f"build:{name}"):
+            from ..services import diagnostics as _dg
+            with _dg.timeit(f"build:{name}"):
                 self._pages[name] = self._page_class(name)(self.main, self)
             self._mark_fresh(self._pages[name])   # __init__ already refreshed
+            # v1.7.6: adapt to the machine. A field report showed the
+            # dashboard's first build at 3650 ms — on such machines the
+            # background prebuilder (one page / 400 ms) STOMPED the UI with
+            # multi-second builds during use. If a page costs > 800 ms,
+            # switch warm-up to slow-and-truly-idle mode (2.5 s spacing,
+            # and only after 3 s without a click).
+            try:
+                _ms = _dg.timings[f"build:{name}"][-1]
+                if _ms > 800 and self.__dict__.get("_prebuild_interval", 400) == 400:
+                    self._prebuild_interval = 2500
+                    self._prebuild_yield_s = 3.0
+                    _dg.add_timing("weak-machine-mode", 1.0)
+            except Exception:
+                pass
         self.page = self._pages[name]
         self.page.grid(row=0, column=0, sticky="nsew")
         # v1.7.5 (lag feedback round 3): the v1.7.2 deferral painted an
@@ -349,19 +363,24 @@ class HimayaApp(ctk.CTk):
                      if key not in self._pages]
         if not remaining:
             return
-        # v1.7.2: if the user just switched sections, skip this slice — a
-        # 100-300ms page build landing right after a click was the
-        # 'still not smooth' stutter during the first minute of use.
-        if time.time() - self.__dict__.get("_last_switch_ts", 0.0) < 0.5:
-            self.after(150, self._prebuild_pages)
+        # v1.7.2/7.6: if the user interacted recently, skip this slice — a
+        # page build landing right after a click was the 'not smooth'
+        # stutter. The yield window and interval are ADAPTIVE: after any
+        # measured build > 800 ms (weak machine), warm-up goes idle-only.
+        yield_s = self.__dict__.get("_prebuild_yield_s", 0.5)
+        interval = self.__dict__.get("_prebuild_interval", 400)
+        if time.time() - self.__dict__.get("_last_switch_ts", 0.0) < yield_s:
+            self.after(max(300, int(interval / 2)), self._prebuild_pages)
             return
+        from ..services.diagnostics import timeit as _t
         try:
-            page = self._page_class(remaining[0])(self.main, self)
+            with _t(f"prebuild:{remaining[0]}"):
+                page = self._page_class(remaining[0])(self.main, self)
             self._pages[remaining[0]] = page
             self._mark_fresh(page)          # __init__ already refreshed (v1.7)
         except Exception:
             pass   # a failed prebuild must never break the app
-        self.after(400, self._prebuild_pages)   # v1.7.5: gentler still
+        self.after(interval, self._prebuild_pages)
 
     def refresh_page(self) -> None:
         if self.page is not None and hasattr(self.page, "refresh"):
