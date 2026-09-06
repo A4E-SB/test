@@ -213,6 +213,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
 
         _phase("refresh.dash.recent", (_time.perf_counter() - _rt) * 1000)
         # alerts: dangerous customers + blacklist size warning
+        _at = _time.perf_counter()
         for w in self.alerts_box.winfo_children():
             w.destroy()
         rows = db.query(
@@ -224,24 +225,19 @@ class DashboardPage(ctk.CTkScrollableFrame):
                          text_color=config.COLOR_GREEN, font=F(12),
                          anchor="w", justify="left").pack(anchor="w", pady=2)
         for r in rows:
-            # flagged customer: tinted danger row + score pill on the right
-            row_f = ctk.CTkFrame(self.alerts_box,
-                                 fg_color=config.tint(config.COLOR_RED, 0.13,
-                                                      base=config.COLOR_BG_2),
-                                 corner_radius=8)
-            row_f.pack(fill="x", pady=2, ipadx=2)
+            # v1.7.8: plain colored labels (the v1.7.4 tinted row + pill each
+            # carried a full draw-canvas — ~1150 ms of the dashboard build
+            # on the reported weak machine). Same info, zero canvases.
+            row_f = ctk.CTkFrame(self.alerts_box, fg_color="transparent")
+            row_f.pack(fill="x", pady=1)
             row_f.grid_columnconfigure(0, weight=1)
             ctk.CTkLabel(row_f, text=f"🚨 {r['name']} — {r['phone']}",
                          text_color=config.COLOR_RED, font=F(12),
                          anchor="w", justify="left").grid(
-                             row=0, column=0, sticky="w", padx=(8, 4), pady=3)
-            pill = ctk.CTkLabel(row_f,
-                                text=f"{trust_badge_text(r['trust_score'])}",
-                                text_color=config.COLOR_RED, font=F(10, "semibold"),
-                                fg_color=config.tint(config.COLOR_RED, 0.16,
-                                                     base=config.COLOR_BG_3),
-                                corner_radius=11, height=22, padx=6)
-            pill.grid(row=0, column=1, sticky="e", padx=(4, 8), pady=3)
+                             row=0, column=0, sticky="w")
+            ctk.CTkLabel(row_f, text=trust_badge_text(r["trust_score"]),
+                         text_color=config.COLOR_RED, font=F(11, "semibold")
+                         ).grid(row=0, column=1, sticky="e", padx=(4, 6))
         # low-stock products (v1.1.0 catalog)
         from ..models import products as products_model
         low = products_model.low_stock_products(db)
@@ -255,3 +251,5 @@ class DashboardPage(ctk.CTkScrollableFrame):
                              text=f"   • {p['name']} : {p['quantity']}",
                              text_color=config.COLOR_ORANGE, font=F(12),
                              anchor="w", justify="left").pack(anchor="w", pady=1)
+
+        _phase("refresh.dash.alerts", (_time.perf_counter() - _at) * 1000)

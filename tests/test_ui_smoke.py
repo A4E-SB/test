@@ -407,6 +407,23 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.8: template cards rebuild only on real changes -----------------
+    app.show_page("time_wasters")
+    tw = app.page
+    built = []
+    orig_load = tw.load_templates
+    tw.load_templates = lambda: built.append(1)
+    tw._tpl_sig = ("All", "fr", 7)
+    tw.load_templates()                       # stubbed: would append
+    assert built == [1]
+    tw.load_templates = orig_load
+    n_children = len(tw.tpl_frame.winfo_children())
+    tw.load_templates()                       # same signature -> skip rebuild
+    assert len(tw.tpl_frame.winfo_children()) == n_children
+    tw._tpl_sig = None
+    tw.load_templates()                       # changed -> rebuild
+    print("  ✓ v1.7.8: template cards rebuild only when something changed")
+
     # ---- v1.7.7: fonts cached globally; history tree fits its column --------
     from himaya.ui import widgets as _Wf
     assert _Wf.F(12) is _Wf.F(12), "same (size,weight) must share one font"

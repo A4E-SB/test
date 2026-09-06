@@ -16,6 +16,8 @@ from ..models import settings_store
 from ..models import templates_store
 from ..services import trust
 from .widgets import F, copy_to_clipboard, make_tree
+from ..services.diagnostics import add_timing as _phase
+import time as _time
 
 CATEGORY_KEYS = {"deposit": "tw_cat_deposit", "negotiation": "tw_cat_negotiation",
                  "ghost": "tw_cat_ghost", "warning": "tw_cat_warning",
@@ -108,8 +110,11 @@ class TimeWastersPage(ctk.CTkFrame):
 
         self.tpl_frame = ctk.CTkScrollableFrame(right, fg_color="transparent")
         self.tpl_frame.pack(fill="both", expand=True, padx=8, pady=6)
+        self._tpl_sig = None      # (v1.7.8) skip template rebuilds when unchanged
 
+        _bw = _time.perf_counter()
         self.refresh()
+        _phase("tw.init.refresh", (_time.perf_counter() - _bw) * 1000)
 
     # ------------------------------------------------------------------
 
@@ -157,9 +162,20 @@ class TimeWastersPage(ctk.CTkFrame):
 
     def load_templates(self) -> None:
         db, lang = self.app.db, self.app.lang
+        cat_sel = self.cat_menu.get()
+        # v1.7.8: template cards (one CTkTextbox each — the heaviest widget
+        # on the page) are only rebuilt when something actually changed.
+        try:
+            n_tpl = db.scalar("SELECT COUNT(*) FROM templates") or 0
+        except Exception:
+            n_tpl = -1
+        sig = (cat_sel, lang, n_tpl)
+        if sig == getattr(self, "_tpl_sig", None):
+            return
+        self._tpl_sig = sig
+        _tt = _time.perf_counter()
         for w in self.tpl_frame.winfo_children():
             w.destroy()
-        cat_sel = self.cat_menu.get()
         cat = ""
         for key, cat_key in CATEGORY_KEYS.items():
             if cat_sel == self.app.t(cat_key):
@@ -184,6 +200,8 @@ class TimeWastersPage(ctk.CTkFrame):
             foot.pack(fill="x", padx=10, pady=(0, 8))
             ctk.CTkButton(foot, text=self.app.t("copy"), width=90, height=28,
                           command=lambda b=body: self.copy_tpl(b)).pack(side="right")
+
+        _phase("tw.refresh.templates", (_time.perf_counter() - _tt) * 1000)
 
     def copy_tpl(self, body: str) -> None:
         """Copy template with the seller's CCP/BaridiMob info substituted."""
