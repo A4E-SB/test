@@ -222,6 +222,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
         _at = _time.perf_counter()
         for w in self.alerts_box.winfo_children():
             w.destroy()
+        _aq = _time.perf_counter()   # query part timed separately (v1.7.12)
         # v1.7.10: split OR into two branches — the score branch now uses
         # idx_customers_trust (index-satisfied, instant) and only the rare
         # scammer-tag branch scans; merged + re-sorted here, same results.
@@ -233,6 +234,8 @@ class DashboardPage(ctk.CTkScrollableFrame):
                        "WHERE (',' || tags || ',') LIKE '%,scammer,%' "
                        "ORDER BY trust_score ASC LIMIT 5"))}
         rows = sorted(rows.values(), key=lambda r: r["trust_score"])[:5]
+        _phase("refresh.dash.alertq", (_time.perf_counter() - _aq) * 1000)
+        _at = _time.perf_counter()   # widget part (labels) timed separately
         if not rows:
             ctk.CTkLabel(self.alerts_box, text=self.app.t("dash_no_alerts"),
                          text_color=config.COLOR_GREEN, font=F(12),

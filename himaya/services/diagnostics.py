@@ -62,6 +62,16 @@ def add_timing(name: str, ms: float) -> None:
             pass
 
 
+_footer: list[str] = []      # v1.7.12: environment facts appended to the
+                              # report (db size, index presence, sqlite build)
+
+
+def set_report_footer(*lines_: str) -> None:
+    """Attach environment facts to every future report()."""
+    global _footer
+    _footer = list(lines_)
+
+
 def report() -> str:
     """Human-readable timing report (last 20 samples per operation)."""
     if not timings:
@@ -71,4 +81,7 @@ def report() -> str:
         avg = sum(buf) / len(buf)
         lines.append(f"  {name:<28} last={buf[-1]:>7.1f}  avg={avg:>7.1f}  "
                      f"max={max(buf):>7.1f}  n={len(buf)}")
+    if _footer:
+        lines.append("")
+        lines.extend(_footer)
     return "\n".join(lines)

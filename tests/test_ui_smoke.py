@@ -420,6 +420,8 @@ def main() -> int:
     assert _dash2.count("from ..models import products") == 1, \
         "products import must live at module top, not inside refresh()"
     assert "WHERE trust_score < 25" in _dash2, "alert score branch index-eligible"
+    assert "refresh.dash.alertq" in _dash2, \
+        "alert queries timed separately from widget work (v1.7.12)"
     _app_src = Path("himaya/ui/app.py").read_text(encoding="utf-8")
     assert "import:{name}" in _app_src, "page-module import cost attributed"
     print("  ✓ v1.7.10: alert sub-marks; page-import cost attributed")

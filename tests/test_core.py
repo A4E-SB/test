@@ -651,6 +651,7 @@ def main() -> int:
     test_design_tokens()
     test_diagnostics_timings()
     test_alert_index_on_existing_db()
+    test_report_footer()
     test_mutation_counter_and_icons(tmp)
     test_reports(tmp)
     test_inquiries(tmp)
@@ -686,16 +687,27 @@ def test_alert_index_on_existing_db():
     db.conn.commit(); db.conn.close()
     db2 = Database(tmp)
     names = [r[1] for r in db2.conn.execute("PRAGMA index_list('customers')")]
-    assert "idx_customers_trust" in names, names
+    check("trust index retrofits", "idx_customers_trust" in names, str(names))
     # v1.7.11: the partial scammer index retrofits too, and the planner
     # must USE it (a leading-wildcard LIKE can never seek a normal index —
     # only a partial index pre-selects the matching rows).
-    assert "idx_customers_scammer" in names, names
+    check("scammer partial index retrofits",
+          "idx_customers_scammer" in names, str(names))
     q = ("SELECT name FROM customers WHERE (',' || tags || ',') "
          "LIKE '%,scammer,%' ORDER BY trust_score ASC LIMIT 5")
     plan = " | ".join(r[3] for r in db2.conn.execute("EXPLAIN QUERY PLAN " + q))
-    assert "USING INDEX idx_customers_scammer" in plan, plan
-    print("  ✓ alert indexes retrofit existing databases (partial idx used)")
+    check("planner uses partial index",
+          "USING INDEX idx_customers_scammer" in plan, plan)
+
+
+def test_report_footer():
+    """v1.7.12: set_report_footer lines are appended to every report."""
+    from himaya.services import diagnostics
+    diagnostics.add_timing("footer_probe", 1.0)
+    diagnostics.set_report_footer("db: customers=42  scammer_idx=yes")
+    rep = diagnostics.report()
+    check("footer in report", "db: customers=42  scammer_idx=yes" in rep)
+    check("timings still present", "footer_probe" in rep)
 
 
 if __name__ == "__main__":

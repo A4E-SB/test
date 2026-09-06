@@ -64,6 +64,22 @@ class HimayaApp(ctk.CTk):
         super().__init__(fg_color=config.COLOR_BG)
         self.dnd_enabled = _enable_dnd(self)   # optional drag & drop
         self.db = db
+        # v1.7.12: environment facts on every diagnostics report — settles
+        # "is the index there? how big is the data? which sqlite?" from the
+        # user's own machine instead of guessing from here.
+        try:
+            from ..services import diagnostics as _diag
+            _n = db.scalar("SELECT COUNT(*) FROM customers") or 0
+            _idx = {r[1] for r in db.conn.execute(
+                "PRAGMA index_list('customers')")}
+            _sv = db.conn.execute("SELECT sqlite_version()").fetchone()[0]
+            _diag.set_report_footer(
+                f"db: customers={_n}  "
+                f"trust_idx={'yes' if 'idx_customers_trust' in _idx else 'NO'}  "
+                f"scammer_idx={'yes' if 'idx_customers_scammer' in _idx else 'NO'}",
+                f"db: sqlite={_sv}  himaya v{config.APP_VERSION}")
+        except Exception:
+            pass   # diagnostics must never break startup
         self.lang = settings_store.get_setting(db, "language", "fr")
         # typeface: Tajawal (bundled) when the UI is Arabic, Segoe UI otherwise
         # (MUST come after self.lang is set — v1.2.0 crashed here on launch)
