@@ -407,6 +407,28 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.6 design system contracts ---------------------------------------
+    from himaya.ui import widgets as _Ws
+    _Ws.FONT_FAMILY = _Ws.LATIN_FONT_FAMILY
+    check_smoke = lambda name, cond: (_ for _ in ()).throw(AssertionError(name)) \
+        if not cond else None
+    check_smoke("400 map", _Ws._font_choice("normal") == ("Segoe UI", "normal"))
+    check_smoke("600 map", _Ws._font_choice("semibold") == ("Segoe UI Semibold", "normal"))
+    check_smoke("800 map", _Ws._font_choice("extrabold") == ("Segoe UI Black", "normal"))
+    check_smoke("bold aliases semibold",
+                _Ws._font_choice("bold") == _Ws._font_choice("semibold"))
+    _srcw = Path("himaya/ui/widgets.py").read_text(encoding="utf-8")
+    assert ".upper() if is_latin" in _srcw, "section headers uppercase (latin)"
+    # truncation fix: status columns wide enough for 'Waiting deposit'
+    for f in ("himaya/ui/orders.py", "himaya/ui/labels_ui.py",
+              "himaya/ui/dashboard.py"):
+        src = Path(f).read_text(encoding="utf-8")
+        import re as _re
+        widths = [int(w) for w in _re.findall(
+            r'\("status", app\.t\("status"\), (\d{3})\)', src)]
+        assert widths and all(w >= 130 for w in widths), (f, widths)
+    print("  ✓ v1.6: type map 400/600/800, uppercase headers, status cols >=132")
+
     # ---- v1.5 design kit: hero / compact stats / horizontal bars -------------
     from himaya.ui.widgets import HeroCard, CompactStat, HBarChart
     hero = HeroCard(app, "Money saved")

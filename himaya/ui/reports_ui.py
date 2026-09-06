@@ -29,7 +29,7 @@ class ReportsPage(ctk.CTkScrollableFrame):
         self.app = app
         self.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-        ctk.CTkLabel(self, text=app.t("rep_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("rep_title"), font=F(21, "extrabold"),
                      anchor=W.rtl_anchor(app)).grid(row=0, column=0, columnspan=4,
                                                     sticky="ew", padx=16, pady=(10, 2))
 

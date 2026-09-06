@@ -28,7 +28,7 @@ class ProductsPage(ctk.CTkFrame):
 
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, sticky="ew", padx=8, pady=(4, 2))
-        ctk.CTkLabel(top, text=app.t("prod_title"), font=F(22, "bold"),
+        ctk.CTkLabel(top, text=app.t("prod_title"), font=F(21, "extrabold"),
                  anchor=rtl_anchor(app)).pack(side=rtl_side(app))
         ctk.CTkButton(top, text=app.t("prod_add"), height=36,
                       fg_color=config.COLOR_GREEN, hover_color="#27ae60",

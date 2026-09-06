@@ -23,7 +23,7 @@ class TransferPage(ctk.CTkScrollableFrame):
         self.app = app
         self.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(self, text=app.t("tr_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("tr_title"), font=F(21, "extrabold"),
                      anchor="w").grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 2))
 
         # ---- .hma blacklist (hero card: flagship offline feature) -------------

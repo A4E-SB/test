@@ -29,7 +29,7 @@ class RelancePage(ctk.CTkFrame):
 
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, sticky="ew", padx=8, pady=(4, 2))
-        ctk.CTkLabel(top, text=app.t("rel_title"), font=F(22, "bold"),
+        ctk.CTkLabel(top, text=app.t("rel_title"), font=F(21, "extrabold"),
                  anchor=rtl_anchor(app)).pack(side=rtl_side(app))
 
         # threshold row

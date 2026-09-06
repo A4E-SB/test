@@ -60,19 +60,36 @@ BACKUP_DIR.mkdir(exist_ok=True)
 # --------------------------------------------------------------------------
 # Theme / colors (dark theme, semantic color coding)
 # --------------------------------------------------------------------------
-COLOR_BG = "#14161a"          # window background
-COLOR_BG_2 = "#1e2128"        # sidebar / table rows
-COLOR_BG_3 = "#2a2e37"        # inputs, hover
-COLOR_CARD = "#262b36"        # elevated surfaces — lighter than the page so
-                              # cards read as cards (v1.2 UX pass)
-COLOR_BORDER = "#3a4150"      # thin 1px card outline
-COLOR_FG = "#f2f4f8"          # main text
-COLOR_FG_DIM = "#9aa3b2"      # secondary text
-COLOR_ACCENT = "#3b82f6"      # primary action blue
-COLOR_GREEN = "#2ecc71"       # trusted / success
-COLOR_YELLOW = "#f1c40f"      # caution
-COLOR_RED = "#e74c3c"         # blocked / danger
-COLOR_ORANGE = "#e67e22"      # warnings
+# ---------------------------------------------------------------------------
+# v1.6 design tokens (dark theme, one brand accent tied to the shield)
+# ---------------------------------------------------------------------------
+COLOR_BG = "#0A0C12"          # page / window background
+COLOR_BG_2 = "#141724"        # surface: sidebar / table rows
+COLOR_BG_3 = "#1B1F2E"        # surface-raised: inputs, hover
+COLOR_CARD = "#141724"        # cards / panels (surface)
+COLOR_BORDER = "#232838"      # hairline 1px borders / dividers
+COLOR_FG = "#EEF0F5"          # text-primary: headings, values
+COLOR_FG_DIM = "#9AA0B4"      # text-secondary: labels, support
+COLOR_FG_MUTED = "#6B7185"    # text-muted: hints, placeholders
+COLOR_ACCENT = "#2FD98A"      # THE brand accent (protection green)
+COLOR_GREEN = "#2FD98A"       # success: paid / delivered / trusted
+COLOR_YELLOW = "#F5B942"      # warning (alias kept for older call sites)
+COLOR_RED = "#F2555A"         # danger: scams / ghosts / refused
+COLOR_ORANGE = "#F5B942"      # warning: medium-risk / waiting / low stock
+COLOR_INFO = "#5B8DEF"        # informational: new orders / shipments
+
+
+def tint(color: str, alpha: float = 0.13, base: str = COLOR_CARD) -> str:
+    """
+    Semantic tint (~12-14% opacity of `color` over `base`) for badge and
+    icon-chip backgrounds — never a solid semantic fill.
+    """
+    def hx(c: str) -> tuple[int, int, int]:
+        c = c.lstrip("#")
+        return int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    r, g, b = (round(a * (1 - alpha) + b_ * alpha)
+               for a, b_ in zip(hx(base), hx(color)))
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 # --------------------------------------------------------------------------
 # Domain constants
@@ -100,20 +117,21 @@ TRUST_CAUTION = 40   # < 40 -> shown in red
 # Customer tags (auto-derived by services.trust)
 KNOWN_TAGS = ["trusted", "new", "ghost", "scammer", "time_waster"]
 
-# Semantic colors per order status (UI color coding)
+# Semantic colors per order status — exactly the four semantic tokens
+# (v1.6): success = paid/delivered, danger = scams/ghosts/refused-failed,
+# warning = waiting, info = fresh orders and shipments. No stray hues.
 STATUS_COLORS = {
-    "pending": COLOR_FG_DIM, "confirmed": COLOR_ACCENT,
-    "shipped": "#8e7cc3", "delivered": COLOR_GREEN, "paid": COLOR_GREEN,
-    "ghosted": COLOR_RED, "refused": COLOR_ORANGE,
-    "phone_off": COLOR_ORANGE, "fake_payment": COLOR_RED,
-    "canceled": COLOR_FG_DIM, "blocked": COLOR_RED,
-    "waiting_deposit": COLOR_YELLOW,
+    "pending": COLOR_INFO, "confirmed": COLOR_INFO, "shipped": COLOR_INFO,
+    "delivered": COLOR_GREEN, "paid": COLOR_GREEN,
+    "ghosted": COLOR_RED, "refused": COLOR_RED, "phone_off": COLOR_RED,
+    "fake_payment": COLOR_RED, "canceled": COLOR_FG_DIM,
+    "blocked": COLOR_RED, "waiting_deposit": COLOR_ORANGE,
 }
 
 # Colors per auto tag
-TAG_COLORS = {"trusted": COLOR_GREEN, "new": COLOR_ACCENT,
+TAG_COLORS = {"trusted": COLOR_GREEN, "new": COLOR_INFO,
               "ghost": COLOR_ORANGE, "scammer": COLOR_RED,
-              "time_waster": COLOR_YELLOW}
+              "time_waster": COLOR_ORANGE}
 
 # Delivery companies commonly used in Algeria
 DELIVERY_COMPANIES = ["Yalidine", "ZR Express", "Maystro", "NOEST Express", "Guepex", "E-Comdel", "Autre"]

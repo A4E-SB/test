@@ -32,7 +32,7 @@ class OrdersPage(ctk.CTkFrame):
         # ---- toolbar ----------------------------------------------------------
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, sticky="ew", padx=8, pady=(4, 2))
-        ctk.CTkLabel(top, text=app.t("ord_title"), font=F(22, "bold"),
+        ctk.CTkLabel(top, text=app.t("ord_title"), font=F(21, "extrabold"),
                  anchor=W.rtl_anchor(app)).pack(side=W.rtl_side(app))
         ctk.CTkButton(top, text=app.t("ord_new"), height=36, fg_color=config.COLOR_GREEN,
                       hover_color="#27ae60",
@@ -88,7 +88,7 @@ class OrdersPage(ctk.CTkFrame):
                 ("customer", app.t("ord_customer"), 170), ("phone", app.t("phone"), 118),
                 ("product", app.t("product"), 150), ("price", app.t("price"), 88),
                 ("dep", app.t("col_deposit"), 78),
-                ("status", app.t("status"), 110), ("delivery", app.t("col_delivery"), 92),
+                ("status", app.t("status"), 132), ("delivery", app.t("col_delivery"), 92),
                 ("wilaya", app.t("wilaya"), 120)]
         self.tree = make_tree(list_frame, cols, height=17)
         self.tree.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
@@ -120,10 +120,15 @@ class OrdersPage(ctk.CTkFrame):
         self.status_btns = []
         for st_name in config.ALL_STATUSES:
             color = config.STATUS_COLORS.get(st_name, config.COLOR_BG_3)
+            # v1.6: tinted pill chips (semantic tint bg + semantic text),
+            # fully rounded, one consistent system with table row tints
             btn = ctk.CTkButton(chips, text=f"●  {t(f'st_{st_name}', app.lang)}",
-                                height=26, width=88,
-                                fg_color=config.COLOR_BG_3, hover_color=color,
-                                text_color=color, font=F(10, "bold"),
+                                height=26, width=92, corner_radius=13,
+                                fg_color=config.tint(color, 0.13,
+                                                     base=config.COLOR_BG_2),
+                                hover_color=config.tint(color, 0.24,
+                                                        base=config.COLOR_BG_2),
+                                text_color=color, font=F(10, "semibold"),
                                 command=lambda st=st_name: self.set_status(st))
             btn.pack(side="left", padx=2)
             self.status_btns.append(btn)

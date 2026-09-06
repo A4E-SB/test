@@ -19,7 +19,13 @@ from ..i18n import t
 # ---------------------------------------------------------------------------
 # Fonts
 # ---------------------------------------------------------------------------
+# v1.6 type scale: three weights only — 400 regular, 600 semibold (card
+# numbers, active nav), 800 extrabold (page titles, hero number). Windows
+# ships real families for each; when Inter TTFs are bundled later the
+# families simply switch here (drop-in).
 LATIN_FONT_FAMILY = "Segoe UI"
+LATIN_FAMILY_SEMIBOLD = "Segoe UI Semibold"
+LATIN_FAMILY_EXTRABOLD = "Segoe UI Black"
 ARABIC_FONT_FAMILY = "Tajawal"        # bundled (OFL) in assets/fonts
 FONT_FAMILY = LATIN_FONT_FAMILY       # swapped by set_ui_font() on language
 
@@ -67,7 +73,24 @@ def set_ui_font(arabic: bool) -> None:
 
 
 def F(size: int = 13, weight: str = "normal") -> ctk.CTkFont:
-    return ctk.CTkFont(family=FONT_FAMILY, size=size, weight=weight)
+    """
+    weight: "normal" (400) | "bold"/"semibold" (600) | "extrabold" (800).
+    Latin mode maps weights to the real Windows families (Tk only knows
+    normal/bold flags); Arabic keeps Tajawal with a bold flag.
+    """
+    fam, flag = _font_choice(weight)
+    return ctk.CTkFont(family=fam, size=size, weight=flag)
+
+
+def _font_choice(weight: str) -> tuple[str, str]:
+    """Map a spec weight to (family, tk-weight-flag) for the current lang."""
+    if FONT_FAMILY == ARABIC_FONT_FAMILY:
+        flag = "bold" if weight in ("bold", "semibold", "extrabold") else "normal"
+        return ARABIC_FONT_FAMILY, flag
+    fam = {"semibold": LATIN_FAMILY_SEMIBOLD,
+           "bold": LATIN_FAMILY_SEMIBOLD,
+           "extrabold": LATIN_FAMILY_EXTRABOLD}.get(weight, LATIN_FONT_FAMILY)
+    return fam, "normal"          # the family IS the weight
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +163,8 @@ def make_tree(master, columns: list[tuple[str, str, int]], rid: bool = False,
     for status, color in config.STATUS_COLORS.items():
         tree.tag_configure(f"row_{status}",
                            foreground=color,
-                           background=_blend(config.COLOR_BG_2, color, 0.10))
+                           background=config.tint(color, 0.13,
+                                                  base=config.COLOR_BG_2))
     return tree
 
 
@@ -204,7 +228,7 @@ class StatCard(ctk.CTkFrame):
         # wraplength: a long amount wraps to a second line instead of being
         # clipped mid-number (v1.2 UX pass)
         self.value_lbl = ctk.CTkLabel(self, text=value, text_color=color,
-                                      font=F(22, "bold"), justify="left",
+                                      font=F(20, "semibold"), justify="left",
                                       anchor="w", wraplength=210)
         self.value_lbl.grid(row=1, column=1, sticky="ew", padx=(10, 12))
         self.sub_lbl = ctk.CTkLabel(self, text=sub, text_color=config.COLOR_FG_DIM,
@@ -260,15 +284,18 @@ class TagPill(ctk.CTkLabel):
 
 class StatusPill(ctk.CTkLabel):
     """
-    The status badge: rounded chip in the status color. Same colors/labels
-    as the Orders legend chips and the table-cell dot form — one system.
+    The status badge as a real pill (v1.6): SEMANTIC-TINTED background,
+    semantic-colored text, fully rounded (999px), never a solid fill.
+    Same colors/labels as the table row tints — one system.
     """
 
     def __init__(self, master, status: str, lang: str):
+        color = STATUS_COLORS.get(status, config.COLOR_FG_DIM)
         super().__init__(master, text=t(f"st_{status}", lang),
-                         fg_color=STATUS_COLORS.get(status, config.COLOR_BG_3),
-                         text_color="#101216", corner_radius=10,
-                         font=F(10, "bold"), height=22, padx=6)
+                         fg_color=config.tint(color, base=config.COLOR_BG_3),
+                         text_color=color, corner_radius=11,
+                         font=F(10, "semibold"), height=22,
+                         padx=6, pady=0)
         self.configure(anchor="center")
 
 
@@ -380,10 +407,10 @@ class BarChart(ctk.CTkCanvas):
         top = ((max_v // (mag / 10)) + 1) * (mag / 10)
 
         self.configure(bg=config.COLOR_BG)
-        # gridlines + y labels
+        # gridlines + y labels (muted hairlines, no axis borders)
         for i in range(5):
             y = pad_t + plot_h * (1 - i / 4)
-            self.create_line(pad_l, y, w - 12, y, fill="#262a33")
+            self.create_line(pad_l, y, w - 12, y, fill=config.COLOR_BORDER)
             v = top * i / 4
             lbl = f"{v:,.0f}".replace(",", " ")
             self.create_text(pad_l - 8, y, text=lbl, anchor="e", fill=config.COLOR_FG_DIM,
@@ -395,10 +422,21 @@ class BarChart(ctk.CTkCanvas):
             x0 = pad_l + i * group_w + group_w / 2
             h1 = plot_h * (s["revenue"] / top)
             h2 = plot_h * (s["losses"] / top)
-            self.create_rectangle(x0 - bar_w - 2, pad_t + plot_h - h1, x0 - 2,
-                                  pad_t + plot_h, fill=config.COLOR_ACCENT, width=0)
-            self.create_rectangle(x0 + 2, pad_t + plot_h - h2, x0 + bar_w + 2,
-                                  pad_t + plot_h, fill=config.COLOR_RED, width=0)
+
+            def rbar(bx0, by0, bx1, by1, color, r=4, _s=self):
+                """Bar with a rounded TOP (spec: 3-4px radius) — smooth
+                polygon (Tk has no rounded-rect primitive)."""
+                if by1 - by0 <= r:
+                    _s.create_rectangle(bx0, by0, bx1, by1, fill=color, width=0)
+                    return
+                pts = [bx0, by1, bx0, by0 + r, bx0 + r, by0, bx1 - r, by0,
+                       bx1, by0 + r, bx1, by1]
+                _s.create_polygon(pts, smooth=True, fill=color, width=0)
+
+            rbar(x0 - bar_w - 2, pad_t + plot_h - h1, x0 - 2,
+                 pad_t + plot_h, config.COLOR_GREEN)
+            rbar(x0 + 2, pad_t + plot_h - h2, x0 + bar_w + 2,
+                 pad_t + plot_h, config.COLOR_RED)
             self.create_text(x0, pad_t + plot_h + 14, text=s["label"],
                              fill=config.COLOR_FG_DIM, font=(FONT_FAMILY, 9))
 
@@ -440,8 +478,10 @@ class FunnelChart(ctk.CTkCanvas):
         row_h = h / n
         label_w = 118
         max_n = max((s["count"] for s in self.stages), default=1) or 1
-        colors = [config.COLOR_BG_3, "#5d6b8a", config.COLOR_YELLOW,
-                  "#8e7cc3", "#2aa198", config.COLOR_GREEN]
+        # semantic tokens only (v1.6): pipeline stages are informational,
+        # the money stages are success — no stray hues anywhere
+        colors = [config.COLOR_INFO, config.COLOR_INFO, config.COLOR_INFO,
+                  config.COLOR_GREEN, config.COLOR_GREEN]
         for i, s in enumerate(self.stages):
             y = i * row_h + 4
             bh = row_h - 10
@@ -580,13 +620,19 @@ class HimayaDialog(ctk.CTkToplevel):
 # ---------------------------------------------------------------------------
 
 def section_header(master, text: str) -> ctk.CTkFrame:
-    """Small accent rule + bold label above a cluster of stats."""
+    """
+    Uppercase 11px semibold muted label (the design spec's section header).
+    Arabic has no uppercase — kept as-is there. +0.04em tracking is not a
+    Tk capability; the uppercase + size + color carry the hierarchy.
+    """
+    is_latin = not any("\u0600" <= ch <= "\u06FF" for ch in text)
     row = ctk.CTkFrame(master, fg_color="transparent")
-    bar = ctk.CTkFrame(row, fg_color=config.COLOR_ACCENT, width=3, height=14,
+    bar = ctk.CTkFrame(row, fg_color=config.COLOR_ACCENT, width=3, height=12,
                        corner_radius=2)
     bar.pack(side="left", padx=(0, 8))
-    lbl = ctk.CTkLabel(row, text=text, font=F(11, "bold"),
-                       text_color=config.COLOR_ACCENT, anchor="w")
+    lbl = ctk.CTkLabel(row, text=text.upper() if is_latin else text,
+                       font=F(11, "semibold"),
+                       text_color=config.COLOR_FG_MUTED, anchor="w")
     lbl.pack(side="left")
     return row
 
@@ -596,26 +642,37 @@ class CompactStat(ctk.CTkFrame):
     Same clickable contract as StatCard, half the footprint."""
 
     def __init__(self, master, title: str, value: str = "—",
-                 color: str = config.COLOR_ACCENT, sub: str = "", on_click=None):
-        super().__init__(master, fg_color=config.COLOR_CARD, corner_radius=8,
+                 color: str = config.COLOR_ACCENT, sub: str = "",
+                 icon: str = "", on_click=None):
+        super().__init__(master, fg_color=config.COLOR_CARD, corner_radius=12,
                          border_width=1, border_color=config.COLOR_BORDER)
         self._on_click = on_click
-        self.grid_columnconfigure(1, weight=1)
-        bar = ctk.CTkFrame(self, fg_color=color, width=3, corner_radius=2)
-        bar.grid(row=0, column=0, rowspan=3, sticky="ns", padx=(7, 0), pady=8)
-        self.title_lbl = ctk.CTkLabel(self, text=title, font=F(10),
+        col = 0
+        if icon:
+            # small icon in a colored circular chip (tinted bg, semantic fg)
+            chip = ctk.CTkFrame(self, fg_color=config.tint(color), width=32,
+                                height=32, corner_radius=16)
+            chip.grid(row=0, column=0, rowspan=3, padx=(10, 0), pady=10)
+            chip.grid_propagate(False)
+            ctk.CTkLabel(chip, text=icon, font=F(14)).place(
+                relx=0.5, rely=0.5, anchor="center")
+            col = 1
+        self.grid_columnconfigure(col + 1, weight=1)
+        self.title_lbl = ctk.CTkLabel(self, text=title, font=F(11),
                                       text_color=config.COLOR_FG_DIM,
                                       anchor="w", justify="left",
                                       wraplength=150)
-        self.title_lbl.grid(row=0, column=1, sticky="ew", padx=(8, 10), pady=(8, 0))
-        self.value_lbl = ctk.CTkLabel(self, text=value, font=F(16, "bold"),
+        self.title_lbl.grid(row=0, column=col + 1, sticky="ew",
+                            padx=(10, 10), pady=(10, 0))
+        self.value_lbl = ctk.CTkLabel(self, text=value, font=F(20, "semibold"),
                                       text_color=color, anchor="w",
-                                      justify="left", wraplength=160)
-        self.value_lbl.grid(row=1, column=1, sticky="ew", padx=(8, 10))
-        self.sub_lbl = ctk.CTkLabel(self, text=sub, font=F(9),
-                                    text_color=config.COLOR_FG_DIM, anchor="w",
-                                    justify="left", wraplength=160)
-        self.sub_lbl.grid(row=2, column=1, sticky="ew", padx=(8, 10), pady=(0, 7))
+                                      justify="left", wraplength=170)
+        self.value_lbl.grid(row=1, column=col + 1, sticky="ew", padx=(10, 10))
+        self.sub_lbl = ctk.CTkLabel(self, text=sub, font=F(10),
+                                    text_color=config.COLOR_FG_MUTED, anchor="w",
+                                    justify="left", wraplength=170)
+        self.sub_lbl.grid(row=2, column=col + 1, sticky="ew",
+                          padx=(10, 10), pady=(0, 9))
         if not sub:
             self.sub_lbl.grid_remove()
         if on_click:
@@ -627,27 +684,33 @@ class CompactStat(ctk.CTkFrame):
 
 
 class HeroCard(ctk.CTkFrame):
-    """THE number of the page: big value + context line, full-width band."""
+    """THE number of the page: shield icon in a soft accent-tinted circle,
+    31px extrabold value, muted support line — full-width band."""
 
-    def __init__(self, master, title: str, color: str = config.COLOR_GREEN,
-                 on_click=None):
+    def __init__(self, master, title: str, color: str = config.COLOR_ACCENT,
+                 icon: str = "\U0001F6E1\uFE0F", on_click=None):
         super().__init__(master, fg_color=config.COLOR_CARD, corner_radius=12,
                          border_width=1, border_color=config.COLOR_BORDER)
         self._on_click = on_click
-        self.grid_columnconfigure(1, weight=1)
-        icon_bar = ctk.CTkFrame(self, fg_color=color, width=5, corner_radius=3)
-        icon_bar.grid(row=0, column=0, rowspan=3, sticky="ns", padx=(12, 0), pady=14)
+        self.grid_columnconfigure(2, weight=1)
+        # soft tinted circular badge (never a solid semantic fill)
+        badge = ctk.CTkFrame(self, fg_color=config.tint(color), width=54,
+                             height=54, corner_radius=27)
+        badge.grid(row=0, column=0, rowspan=3, padx=(16, 0), pady=16)
+        badge.grid_propagate(False)
+        ctk.CTkLabel(badge, text=icon, font=F(24)).place(relx=0.5, rely=0.5,
+                                                         anchor="center")
         self.title_lbl = ctk.CTkLabel(self, text=title, font=F(12),
                                       text_color=config.COLOR_FG_DIM, anchor="w")
-        self.title_lbl.grid(row=0, column=1, sticky="w", padx=(10, 16), pady=(12, 0))
-        self.value_lbl = ctk.CTkLabel(self, text="—", font=F(32, "bold"),
+        self.title_lbl.grid(row=0, column=2, sticky="w", padx=(14, 16), pady=(14, 0))
+        self.value_lbl = ctk.CTkLabel(self, text="—", font=F(31, "extrabold"),
                                       text_color=color, anchor="w",
                                       justify="left", wraplength=520)
-        self.value_lbl.grid(row=1, column=1, sticky="w", padx=(10, 16))
+        self.value_lbl.grid(row=1, column=2, sticky="w", padx=(14, 16))
         self.sub_lbl = ctk.CTkLabel(self, text="", font=F(11),
-                                    text_color=config.COLOR_FG_DIM, anchor="w",
+                                    text_color=config.COLOR_FG_MUTED, anchor="w",
                                     justify="left", wraplength=520)
-        self.sub_lbl.grid(row=2, column=1, sticky="w", padx=(10, 16), pady=(0, 12))
+        self.sub_lbl.grid(row=2, column=2, sticky="w", padx=(14, 16), pady=(0, 14))
         if on_click:
             self._make_clickable()
 

@@ -36,7 +36,7 @@ class CustomersPage(ctk.CTkFrame):
         # ---- toolbar ------------------------------------------------------
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=(4, 2))
-        ctk.CTkLabel(top, text=app.t("cust_title"), font=F(22, "bold"),
+        ctk.CTkLabel(top, text=app.t("cust_title"), font=F(21, "extrabold"),
                  anchor=W.rtl_anchor(app)).pack(side=W.rtl_side(app))
         self.search_var = tk.StringVar()
         self._search_deb = W.Debouncer(self, 250)

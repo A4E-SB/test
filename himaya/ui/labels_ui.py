@@ -48,7 +48,7 @@ class LabelsPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
-        ctk.CTkLabel(self, text=app.t("lb_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("lb_title"), font=F(21, "extrabold"),
                      anchor="w").grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 2))
         ctk.CTkLabel(self, text=app.t("lb_desc"), font=F(12),
                      text_color=config.COLOR_FG_DIM, anchor="w", justify="left",
@@ -82,7 +82,7 @@ class LabelsPage(ctk.CTkFrame):
         cols = [("id", "#", 46), ("date", app.t("date"), 88),
                 ("customer", app.t("ord_customer"), 190), ("phone", app.t("phone"), 120),
                 ("product", app.t("product"), 170), ("price", app.t("price"), 90),
-                ("status", app.t("status"), 110), ("wilaya", app.t("wilaya"), 130),
+                ("status", app.t("status"), 132), ("wilaya", app.t("wilaya"), 130),
                 ("risk", app.t("cust_trust"), 150)]
         self.tree = make_tree(card, cols, height=15)
         self.tree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(2, 12))

@@ -24,7 +24,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
 
         title_row = ctk.CTkFrame(self, fg_color="transparent")
         title_row.grid(row=0, column=0, columnspan=4, sticky="ew", padx=8, pady=(4, 6))
-        ctk.CTkLabel(title_row, text=app.t("nav_dashboard"), font=F(24, "bold"),
+        ctk.CTkLabel(title_row, text=app.t("nav_dashboard"), font=F(21, "extrabold"),
                      anchor="e" if rtl else "w",
                      justify="right" if rtl else "left").pack(side="left")
         self.period_labels = {k: app.t(k) for k in
@@ -46,7 +46,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
 
         # hero: money protected from scammers this period
         self.hero = HeroCard(self, app.t("dash_money_saved"),
-                             color=config.COLOR_GREEN,
+                             color=config.COLOR_ACCENT, icon="\U0001F6E1\uFE0F",
                              on_click=lambda: self._goto_orders("blocked"))
         self.hero.grid(row=1, column=0, columnspan=4, sticky="ew",
                        padx=8, pady=(4, 2))
@@ -56,16 +56,16 @@ class DashboardPage(ctk.CTkScrollableFrame):
             row=2, column=0, columnspan=4, sticky="w", padx=10, pady=(8, 0))
         go = self.app.show_page
         self.card_orders = CompactStat(self, app.t("dash_today_new"),
-                                       color=config.COLOR_ACCENT,
+                                       color=config.COLOR_INFO, icon="📦",
                                        on_click=lambda: self._goto_orders(""))
         self.card_shipped = CompactStat(self, app.t("dash_today_shipped"),
-                                        color=config.COLOR_ACCENT,
+                                        color=config.COLOR_INFO, icon="🚚",
                                         on_click=lambda: self._goto_orders("shipped"))
         self.card_delivered = CompactStat(self, app.t("dash_delivered"),
-                                          color=config.COLOR_GREEN,
+                                          color=config.COLOR_GREEN, icon="✅",
                                           on_click=lambda: self._goto_orders("delivered"))
         self.card_ghosts = CompactStat(self, app.t("dash_today_ghosts"),
-                                       color=config.COLOR_RED,
+                                       color=config.COLOR_RED, icon="👻",
                                        on_click=lambda: self._goto_orders("ghosted"))
         for i, card in enumerate([self.card_orders, self.card_shipped,
                                   self.card_delivered, self.card_ghosts]):
@@ -126,7 +126,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
         cols = [("id", "#", 50), ("date", app.t("date"), 90),
                 ("customer", app.t("ord_customer"), 180), ("phone", app.t("phone"), 120),
                 ("product", app.t("product"), 160), ("price", app.t("price"), 90),
-                ("status", app.t("status"), 110)]
+                ("status", app.t("status"), 132)]
         self.tree = make_tree(recent_frame, cols, height=8)
         self.tree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(2, 12))
 
@@ -205,10 +205,24 @@ class DashboardPage(ctk.CTkScrollableFrame):
                          text_color=config.COLOR_GREEN, font=F(12),
                          anchor="w", justify="left").pack(anchor="w", pady=2)
         for r in rows:
-            ctk.CTkLabel(self.alerts_box,
-                         text=f"🚨 {r['name']} — {r['phone']}  •  {trust_badge_text(r['trust_score'])}",
+            # flagged customer: tinted danger row + score pill on the right
+            row_f = ctk.CTkFrame(self.alerts_box,
+                                 fg_color=config.tint(config.COLOR_RED, 0.13,
+                                                      base=config.COLOR_BG_2),
+                                 corner_radius=8)
+            row_f.pack(fill="x", pady=2, ipadx=2)
+            row_f.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(row_f, text=f"🚨 {r['name']} — {r['phone']}",
                          text_color=config.COLOR_RED, font=F(12),
-                         anchor="w", justify="left").pack(anchor="w", pady=2)
+                         anchor="w", justify="left").grid(
+                             row=0, column=0, sticky="w", padx=(8, 4), pady=3)
+            pill = ctk.CTkLabel(row_f,
+                                text=f"{trust_badge_text(r['trust_score'])}",
+                                text_color=config.COLOR_RED, font=F(10, "semibold"),
+                                fg_color=config.tint(config.COLOR_RED, 0.16,
+                                                     base=config.COLOR_BG_3),
+                                corner_radius=11, height=22, padx=6)
+            pill.grid(row=0, column=1, sticky="e", padx=(4, 8), pady=3)
         # low-stock products (v1.1.0 catalog)
         from ..models import products as products_model
         low = products_model.low_stock_products(db)

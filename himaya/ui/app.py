@@ -168,7 +168,7 @@ class HimayaApp(ctk.CTk):
                                       0 if logo_first else 10))
         except Exception:
             pass
-        ctk.CTkLabel(brand, text="Himaya", font=F(24, "bold"),
+        ctk.CTkLabel(brand, text="Himaya", font=F(21, "extrabold"),
                      text_color=config.COLOR_ACCENT).pack(
             side="left" if logo_first else "right")
         # one translated string — never concatenate Arabic + Latin here
@@ -190,7 +190,7 @@ class HimayaApp(ctk.CTk):
         for i, (key, label_key, icon) in enumerate(PAGES, start=3):
             btn = ctk.CTkButton(
                 self.sidebar, text=f"{icon}  {t(label_key, self.lang)}",
-                anchor="e" if self.rtl else "w", font=F(13), height=38,
+                anchor="e" if self.rtl else "w", font=F(13), height=36,
                 corner_radius=8, fg_color="transparent",
                 hover_color=config.COLOR_BG_3, text_color=config.COLOR_FG,
                 command=lambda k=key: self.show_page(k))
@@ -238,8 +238,14 @@ class HimayaApp(ctk.CTk):
                 pass   # already destroyed (e.g. right after a language switch)
         for k, btn in self._nav_buttons.items():
             active = k == name
-            btn.configure(fg_color=config.COLOR_ACCENT if active else "transparent",
-                          text_color="#ffffff" if active else config.COLOR_FG)
+            # v1.6: active = soft accent-tinted background + accent text
+            # (semibold via the active font), inactive stays transparent
+            btn.configure(
+                fg_color=config.tint(config.COLOR_ACCENT, 0.14,
+                                     base=config.COLOR_BG_2) if active
+                else "transparent",
+                text_color=config.COLOR_ACCENT if active else config.COLOR_FG,
+                font=F(13, "semibold") if active else F(13))
         self.page_name = name
         if name not in self._pages:
             self._pages[name] = self._page_class(name)(self.main, self)

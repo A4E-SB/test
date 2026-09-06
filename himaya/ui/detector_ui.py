@@ -32,7 +32,7 @@ class DetectorPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(3, weight=1)
 
-        ctk.CTkLabel(self, text=app.t("det_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("det_title"), font=F(21, "extrabold"),
                      anchor="w").grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 0))
         ctk.CTkLabel(self, text=app.t("det_desc"), font=F(12),
                      text_color=config.COLOR_FG_DIM, anchor="w", justify="left",

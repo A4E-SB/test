@@ -153,6 +153,36 @@ def test_orders_and_aggregates(tmp: Path) -> None:
     check("money_saved counts blocked shipping", orders.money_saved(db) == 650.0)
 
 
+def test_design_tokens() -> None:
+    """v1.6 design system: the four semantic tokens, tint math, type map."""
+    from himaya import config as C
+
+    check("brand accent is the protection green", C.COLOR_ACCENT == "#2FD98A")
+    check("success == accent (one brand color)", C.COLOR_GREEN == C.COLOR_ACCENT)
+    check("dark surfaces are the spec tokens",
+          (C.COLOR_BG, C.COLOR_BG_2, C.COLOR_BG_3, C.COLOR_BORDER)
+          == ("#0A0C12", "#141724", "#1B1F2E", "#232838"))
+    semantic = {C.COLOR_GREEN, C.COLOR_RED, C.COLOR_ORANGE, C.COLOR_INFO,
+                C.COLOR_FG_DIM}
+    bad = {st: c for st, c in C.STATUS_COLORS.items() if c not in semantic}
+    check(f"every status maps to a semantic token {bad or ''}", not bad)
+    check("paid/delivered are success",
+          C.STATUS_COLORS["paid"] == C.STATUS_COLORS["delivered"] == C.COLOR_GREEN)
+    check("waiting_deposit is warning",
+          C.STATUS_COLORS["waiting_deposit"] == C.COLOR_ORANGE)
+    check("ghost/fake/refused are danger",
+          C.STATUS_COLORS["ghosted"] == C.STATUS_COLORS["fake_payment"]
+          == C.STATUS_COLORS["refused"] == C.COLOR_RED)
+    # tint: ~13% of the color over the surface, hex-form, never solid
+    t = C.tint(C.COLOR_ACCENT)
+    check("tint returns hex", t.startswith("#") and len(t) == 7)
+    r, g, b = (int(t[i:i + 2], 16) for i in (1, 3, 5))
+    base = (0x14, 0x17, 0x24)
+    check("tint is between surface and color",
+          base[0] < r <= 0x2F and base[1] < g <= 0xD9 and base[2] < b <= 0x8A)
+    check("tint alpha=0 is the base", C.tint(C.COLOR_RED, 0) == "#141724")
+
+
 def test_period_aware_aggregates(tmp: Path) -> None:
     """v1.5: dashboard figures must respect the selected period."""
     from datetime import date as _d, timedelta as _td
@@ -559,6 +589,7 @@ def main() -> int:
     test_orders_and_aggregates(tmp)
     test_order_date_and_companies(tmp)
     test_period_aware_aggregates(tmp)
+    test_design_tokens()
     test_reports(tmp)
     test_inquiries(tmp)
     test_blacklist_and_hma(tmp)

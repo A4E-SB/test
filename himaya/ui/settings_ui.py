@@ -26,7 +26,7 @@ class SettingsPage(ctk.CTkScrollableFrame):
         self.app = app
         self.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(self, text=app.t("set_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("set_title"), font=F(21, "extrabold"),
                      anchor=W.rtl_anchor(app)).grid(row=0, column=0, sticky="ew",
                                                   padx=16, pady=(10, 4))
 

@@ -31,7 +31,7 @@ class TimeWastersPage(ctk.CTkFrame):
         self.grid_columnconfigure(1, weight=4)
         self.grid_rowconfigure(1, weight=1)
 
-        ctk.CTkLabel(self, text=app.t("tw_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("tw_title"), font=F(21, "extrabold"),
                      anchor="w").grid(row=0, column=0, columnspan=2, sticky="ew",
                                       padx=16, pady=(10, 2))
         ctk.CTkLabel(self, text=app.t("tw_desc"), font=F(12),
