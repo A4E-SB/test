@@ -272,7 +272,13 @@ class StatCard(ctk.CTkFrame):
         super().__init__(master, fg_color=config.COLOR_CARD, corner_radius=12,
                          border_width=1, border_color=config.COLOR_BORDER)
         self._on_click = on_click
-        self.grid_columnconfigure(0, weight=1)
+        # v1.7.15: the stretch weight belongs on the TEXT column (1). It was
+        # on column 0 — the 4px accent bar — so every extra pixel of card
+        # width opened a gap BETWEEN bar and text: the bar hugged the left
+        # edge while the number block drifted right ("numbers look a little
+        # off position" in the dashboard activity/money rows).
+        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(1, weight=1)
         bar = ctk.CTkFrame(self, fg_color=color, width=4, corner_radius=2)
         bar.grid(row=0, column=0, rowspan=3, sticky="ns", padx=(8, 0), pady=10)
         self.title_lbl = ctk.CTkLabel(self, text=title, text_color=config.COLOR_FG_DIM,

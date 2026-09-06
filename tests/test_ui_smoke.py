@@ -408,6 +408,15 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.15: StatCard stretch weight on the TEXT column ------------------
+    _wsrc = Path("himaya/ui/widgets.py").read_text(encoding="utf-8")
+    _block = _wsrc[_wsrc.index("class StatCard"):_wsrc.index("class StatCard") + 2000]
+    assert "grid_columnconfigure(1, weight=1)" in _block, \
+        "text column must absorb the card's stretch"
+    assert "grid_columnconfigure(0, weight=1)" not in _block, \
+        "weight on the 4px bar column opens a gap -> numbers drift off position"
+    print("  ✓ v1.7.15: StatCard numbers anchored to the accent bar")
+
     # ---- v1.7.13: no astral emoji on refresh-path pages -----------------------
     # Deep-plane emoji are absent from the UI font: every render forces the
     # Windows font-fallback hunt (~33ms/label on weak machines — the 200ms
