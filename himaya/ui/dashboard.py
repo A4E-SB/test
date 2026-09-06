@@ -20,7 +20,8 @@ from .widgets import card as surface
 
 class DashboardPage(ctk.CTkScrollableFrame):
     def __init__(self, master, app):
-        super().__init__(master, fg_color=config.COLOR_BG)
+        _sf = _time.perf_counter()      # base construction cost (canvas +
+        super().__init__(master, fg_color=config.COLOR_BG)  # scrollbars)
         self.app = app
         self.grid_columnconfigure((0, 1, 2, 3), weight=1)
         rtl = app.lang == "ar"
@@ -41,6 +42,8 @@ class DashboardPage(ctk.CTkScrollableFrame):
         self._period_days = {"dash_today": 0, "dash_7d": 7,
                              "dash_30d": 30, "dash_all": None}
 
+        _phase("dash.init.base", (_time.perf_counter() - _sf) * 1000)
+        _t0 = _time.perf_counter()
         # ---- v1.5 dense analytics layout --------------------------------------
         # ONE hero number (money saved — the anti-scam promise), then tight
         # labelled clusters. Every figure respects the selected period (the
@@ -53,6 +56,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
                              on_click=lambda: self._goto_orders("blocked"))
         self.hero.grid(row=1, column=0, columnspan=4, sticky="ew",
                        padx=8, pady=(4, 2))
+        _phase("dash.widgets.head", (_time.perf_counter() - _t0) * 1000)
         _t0 = _time.perf_counter()
 
         # cluster: activity --------------------------------------------------

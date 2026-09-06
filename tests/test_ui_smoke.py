@@ -407,6 +407,21 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.7: fonts cached globally; history tree fits its column --------
+    from himaya.ui import widgets as _Wf
+    assert _Wf.F(12) is _Wf.F(12), "same (size,weight) must share one font"
+    assert _Wf.F(12) is not _Wf.F(12, "bold")
+    assert len(_Wf._FONT_CACHE) >= 2
+    _cust_src = Path("himaya/ui/customers.py").read_text(encoding="utf-8")
+    assert "orient=\"horizontal\"" in _cust_src and \
+        "xscrollcommand" in _cust_src, \
+        "detail history needs a horizontal scrollbar (fit bug)"
+    import re as _re2
+    widths = [int(w) for w in _re2.findall(
+        r'\("status", app\.t\("status"\), (\d{2,3})\)', _cust_src)]
+    assert widths and sum(w for w in widths) <= 120, "history widths must fit"
+    print("  ✓ v1.7.7: fonts cached; history tree fits + scrolls horizontally")
+
     # ---- v1.7.4: customer detail fills its panel + updates in place ---------
     app.show_page("customers")
     cust_page = app.page

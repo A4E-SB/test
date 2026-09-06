@@ -73,14 +73,28 @@ def set_ui_font(arabic: bool) -> None:
         FONT_FAMILY = LATIN_FONT_FAMILY
 
 
+_FONT_CACHE: dict[tuple, ctk.CTkFont] = {}
+
+
 def F(size: int = 13, weight: str = "normal") -> ctk.CTkFont:
     """
     weight: "normal" (400) | "bold"/"semibold" (600) | "extrabold" (800).
     Latin mode maps weights to the real Windows families (Tk only knows
     normal/bold flags); Arabic keeps Tajawal with a bold flag.
+
+    v1.7.7: fonts are CACHED per (family, size, weight) — the app used to
+    create a fresh CTkFont object for every single label (~300 process-
+    wide, ~35 per dashboard card row). A field report showed widget
+    creation dominating page builds on slow machines (369 ms for 9 cards);
+    Tk fonts are shared resources by design, so every unique combo is
+    created exactly once and reused everywhere.
     """
     fam, flag = _font_choice(weight)
-    return ctk.CTkFont(family=fam, size=size, weight=flag)
+    key = (fam, size, flag)
+    f = _FONT_CACHE.get(key)
+    if f is None:
+        f = _FONT_CACHE[key] = ctk.CTkFont(family=fam, size=size, weight=flag)
+    return f
 
 
 def _font_choice(weight: str) -> tuple[str, str]:

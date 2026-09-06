@@ -125,11 +125,24 @@ class CustomersPage(ctk.CTkFrame):
         self.det_hist_lbl = ctk.CTkLabel(self.det_hist, text=app.t("cust_order_history"),
                                          font=F(12, "semibold"), anchor="w")
         self.det_hist_lbl.grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 2))
-        hcols = [("id", "#", 44), ("date", app.t("date"), 88),
-                 ("product", app.t("product"), 150), ("price", app.t("price"), 92),
-                 ("status", app.t("status"), 132)]
-        self.det_tree = make_tree(self.det_hist, hcols, height=6)
-        self.det_tree.grid(row=1, column=0, sticky="nsew", padx=8, pady=(2, 10))
+        # v1.7.7 fix: the detail column is ~420px — the old 506px of columns
+        # pushed the status column out of view (no scrollbar). Widths now
+        # fit ~390px AND a horizontal scrollbar handles any narrow window
+        # or long product name (nothing is ever unreachable).
+        hcols = [("id", "#", 38), ("date", app.t("date"), 78),
+                 ("product", app.t("product"), 120), ("price", app.t("price"), 78),
+                 ("status", app.t("status"), 112)]
+        hist_body = ctk.CTkFrame(self.det_hist, fg_color="transparent")
+        hist_body.grid(row=1, column=0, sticky="nsew", padx=8, pady=(2, 10))
+        hist_body.grid_columnconfigure(0, weight=1)
+        hist_body.grid_rowconfigure(0, weight=1)
+        self.det_tree = make_tree(hist_body, hcols, height=6)
+        self.det_tree.grid(row=0, column=0, sticky="nsew")
+        from tkinter import ttk as _ttk
+        xs = _ttk.Scrollbar(hist_body, orient="horizontal",
+                            command=self.det_tree.xview)
+        xs.grid(row=1, column=0, sticky="ew")
+        self.det_tree.configure(xscrollcommand=xs.set)
         W.bind_tree_tooltips(self.det_tree)
 
         self.refresh()
