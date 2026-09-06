@@ -218,7 +218,7 @@ _TR = {
     "tr_export_hma": {"fr": "Exporter liste noire (.hma)", "en": "Export blacklist (.hma)", "ar": "تصدير القائمة السوداء (.hma)"},
     "tr_import_hma": {"fr": "Importer un fichier .hma", "en": "Import a .hma file", "ar": "استيراد ملف .hma"},
     "tr_hma_exported": {"fr": "{n} numéro(s) exportés vers {path}", "en": "{n} number(s) exported to {path}", "ar": "تم تصدير {n} رقم إلى {path}"},
-    "tr_hma_imported": {"fr": "Importés : {imported} • déjà connus : {skipped} • invalides : {invalid} • empreintes : {hashes}", "en": "Imported: {imported} • already known: {skipped} • invalid: {invalid} • hashes: {hashes}", "ar": "مستوردة: {imported} • معروفة: {skipped} • غير صالحة: {invalid}"},
+    "tr_hma_imported": {"fr": "Importés : {imported} • déjà connus : {skipped} • invalides : {invalid} • empreintes : {hashes}", "en": "Imported: {imported} • already known: {skipped} • invalid: {invalid} • hashes: {hashes}", "ar": "مستوردة: {imported} • معروفة: {skipped} • غير صالحة: {invalid} • بصمات: {hashes}"},
     "tr_not_hma": {"fr": "Ce fichier n'est pas un fichier .hma valide", "en": "This file is not a valid .hma file", "ar": "هذا الملف ليس ملف .hma صالحا"},
     "tr_orders_export": {"fr": "Exporter les commandes", "en": "Export orders", "ar": "تصدير الطلبيات"},
     "tr_orders_import": {"fr": "Importer des commandes (CSV)", "en": "Import orders (CSV)", "ar": "استيراد الطلبيات (CSV)"},
