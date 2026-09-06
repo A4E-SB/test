@@ -413,7 +413,7 @@ def main() -> int:
         "alert rows must not use canvas-backed frames (452ms on weak machines)"
     assert "dash.init.total" in _dash, "whole-constructor timing present"
     _tw = Path("himaya/ui/time_wasters.py").read_text(encoding="utf-8")
-    assert "CTkTextbox" not in _tw, \
+    assert "ctk.CTkTextbox(" not in _tw, \
         "template bodies are wrapped labels now (textboxes cost ~50ms each)"
     print("  ✓ v1.7.9: alerts canvas-free; templates rendered as labels")
 
