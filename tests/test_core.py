@@ -187,6 +187,29 @@ def test_mutation_counter_and_icons(tmp: Path) -> None:
     check("icons are color-parameterized", a != b)
 
 
+def test_diagnostics_timings() -> None:
+    """v1.7.5: the in-app profiler (Settings -> Diagnostics)."""
+    from himaya import config
+    from himaya.services import diagnostics as dg
+    dg.timings.clear()
+    dg.add_timing("refresh:orders", 42.0)
+    dg.add_timing("refresh:orders", 58.0)
+    with dg.timeit("build:reports"):
+        pass                                   # ~0 ms
+    rep = dg.report()
+    check("report lists operations",
+          "refresh:orders" in rep and "build:reports" in rep)
+    check("report shows avg/max", "avg=" in rep and "max=" in rep)
+    check("ring buffer bounded", len(dg.timings["refresh:orders"]) == 2)
+    # slow ops (>150ms) are appended to error.log
+    err = config.DATA_DIR / "error.log"
+    if err.exists():
+        err.unlink()
+    dg.add_timing("refresh:orders", 300.0)
+    check("slow ops land in error.log",
+          err.exists() and "SLOW refresh:orders" in err.read_text(encoding="utf-8"))
+
+
 def test_design_tokens() -> None:
     """v1.6 design system: the four semantic tokens, tint math, type map."""
     from himaya import config as C
@@ -624,6 +647,7 @@ def main() -> int:
     test_order_date_and_companies(tmp)
     test_period_aware_aggregates(tmp)
     test_design_tokens()
+    test_diagnostics_timings()
     test_mutation_counter_and_icons(tmp)
     test_reports(tmp)
     test_inquiries(tmp)

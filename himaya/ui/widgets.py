@@ -176,12 +176,13 @@ def make_tree(master, columns: list[tuple[str, str, int]], rid: bool = False,
 _FILL_TOKENS = weakref.WeakKeyDictionary()
 
 
-def fill_tree_chunked(tree, rows: list, batch: int = 40, schedule=None) -> int:
+def fill_tree_chunked(tree, rows: list, batch: int = 250, schedule=None) -> int:
     """
-    Replace a tree's rows WITHOUT freezing the UI (v1.7.2): the first
-    `batch` rows appear immediately, the rest arrive in ~16ms idle slices,
-    so no single block exceeds a few ms (200 rows used to land in one
-    100-200ms burst right after a section switch — the residual stutter).
+    Replace a tree's rows without one long freeze (v1.7.2) AND without
+    visible pop-in (v1.7.5): batch defaults to 250 — a 200-row page lands
+    as ONE batch (complete table, no streaming jank), while anything
+    larger still streams in ~16ms slices. A newer fill cancels an
+    in-flight one.
     rows: [{iid, values, tags}, ...]. A newer fill on the same tree
     cancels an in-flight one. `schedule(ms, fn)` is injectable for tests.
     Returns the fill token (cancellation id).

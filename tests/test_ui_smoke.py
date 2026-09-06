@@ -497,7 +497,7 @@ def main() -> int:
               "himaya/ui/labels_ui.py"):
         assert "fill_tree_chunked" in Path(f).read_text(encoding="utf-8"), f
     _app_src = Path("himaya/ui/app.py").read_text(encoding="utf-8")
-    assert "_last_switch_ts" in _app_src and "after(180, self._prebuild_pages)" \
+    assert "_last_switch_ts" in _app_src and "after(400, self._prebuild_pages)" \
         in _app_src, "prebuild must pace itself and yield on switches"
     import time as _t
     app._pages.pop("settings", None)                # simulate one unbuilt page
@@ -554,17 +554,14 @@ def main() -> int:
     print("  ✓ v1.7: clean pages do NOT refresh on switch")
     app.db.mutation_count += 1         # simulate a data change
     assert app._page_stale(page) is True
-    app.show_page("orders")            # marks fresh + schedules the deferred
+    app.show_page("orders")            # refresh runs SYNCHRONOUSLY (v1.7.5)
     assert app._page_stale(app.page) is False
+    assert calls == [1], "dirty page must refresh synchronously, in one pass"
     calls.clear()
-    app._deferred_refresh(app.page)    # the deferred callback itself
-    assert calls == [1], "dirty page must refresh (deferred path)"
-    old = app.page
     app.show_page("customers")
-    calls.clear()
-    app._deferred_refresh(old)         # not the current page anymore
-    assert calls == [], "deferred refresh must not fire for stale nav"
-    print("  ✓ v1.7: data change -> one deferred refresh; stale nav guarded")
+    app.show_page("orders")            # clean again -> zero refreshes
+    assert calls == [], "clean page must not re-render"
+    print("  ✓ v1.7.5: data change -> one synchronous refresh; clean stays idle")
 
     # ---- v1.7: bars are rounded on TOP only, baseline flush -------------------
     from himaya.ui.widgets import bar_points as _bp

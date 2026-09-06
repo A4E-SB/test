@@ -303,36 +303,35 @@ class HimayaApp(ctk.CTk):
         self._last_switch_ts = time.time()     # prebuild yields to the user
         self.page_name = name
         if name not in self._pages:
-            self._pages[name] = self._page_class(name)(self.main, self)
+            from ..services.diagnostics import timeit
+            with timeit(f"build:{name}"):
+                self._pages[name] = self._page_class(name)(self.main, self)
             self._mark_fresh(self._pages[name])   # __init__ already refreshed
         self.page = self._pages[name]
         self.page.grid(row=0, column=0, sticky="nsew")
-        # v1.7 (diagnosed lag fix): refreshing on EVERY switch rebuilt up to
-        # 500 Treeview rows synchronously per click (queries themselves are
-        # ~1-2 ms — measured). Now a page refreshes only when the data
-        # actually changed (db.mutation_count) or it has been hidden a
-        # while, and it is DEFERRED one idle tick so the click paints first.
+        # v1.7.5 (lag feedback round 3): the v1.7.2 deferral painted an
+        # EMPTY table first and streamed rows in — the pop-in READ as lag
+        # ("worse"). Now: refresh only when data changed (mutation counter,
+        # no time window -> no surprise rebuilds) and do it SYNCHRONOUSLY
+        # before the switch lands, so the page appears complete. Rows are
+        # filled in one batch (fill_tree_chunked batch=250), no streaming.
         if self._page_stale(self.page) and hasattr(self.page, "refresh"):
             self._mark_fresh(self.page)
-            self.after(10, lambda pg=self.page: self._deferred_refresh(pg))
-
-    def _deferred_refresh(self, page) -> None:
-        """Run a page refresh after the switch has painted (guarded)."""
-        try:
-            if page is getattr(self, "page", None) and hasattr(page, "refresh"):
-                page.refresh()
-        except Exception:
-            from ..services.diagnostics import log_crash
-            log_crash("deferred-refresh")
+            from ..services.diagnostics import timeit
+            try:
+                with timeit(f"refresh:{name}"):
+                    self.page.refresh()
+            except Exception:
+                from ..services.diagnostics import log_crash
+                log_crash(f"refresh:{name}")
 
     def _mark_fresh(self, page) -> None:
-        page._refreshed_mut = self.db.mutation_count
-        page._refreshed_ts = time.time()
+        page.__dict__["_refreshed_mut"] = self.db.mutation_count
 
     def _page_stale(self, page) -> bool:
-        mut_ok = getattr(page, "_refreshed_mut", None) == self.db.mutation_count
-        fresh = (time.time() - getattr(page, "_refreshed_ts", 0)) < 120
-        return not (mut_ok and fresh)
+        # __dict__ probes: under the headless test stubs every getattr
+        # resolves to a truthy factory (never the default).
+        return page.__dict__.get("_refreshed_mut") != self.db.mutation_count
 
     def _prebuild_pages(self) -> None:
         """
@@ -362,7 +361,7 @@ class HimayaApp(ctk.CTk):
             self._mark_fresh(page)          # __init__ already refreshed (v1.7)
         except Exception:
             pass   # a failed prebuild must never break the app
-        self.after(180, self._prebuild_pages)   # gentler pacing than 60ms
+        self.after(400, self._prebuild_pages)   # v1.7.5: gentler still
 
     def refresh_page(self) -> None:
         if self.page is not None and hasattr(self.page, "refresh"):
