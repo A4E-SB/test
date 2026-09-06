@@ -153,6 +153,30 @@ def test_orders_and_aggregates(tmp: Path) -> None:
     check("money_saved counts blocked shipping", orders.money_saved(db) == 650.0)
 
 
+def test_mutation_counter_and_icons(tmp: Path) -> None:
+    """v1.7: data-change signal + the offline stroke-icon set."""
+    from himaya.models import customers
+
+    db = make_db(tmp)
+    before = db.mutation_count
+    db.query("SELECT COUNT(*) FROM customers")           # read: no bump
+    check("reads do not bump mutations", db.mutation_count == before)
+    customers.create(db, "Mut", "0555443322")             # write: bump
+    check("writes bump mutations", db.mutation_count == before + 1)
+
+    from himaya.ui.icons import render, ICONS
+    check("12 icons in the set", len(ICONS) == 12)
+    for n in ICONS:
+        im = render(n, "#2FD98A", 20)
+        check(f"icon {n} renders 20x20 RGBA",
+              im.size == (20, 20) and im.mode == "RGBA")
+        check(f"icon {n} is not empty",
+              im.getchannel("A").getextrema()[1] > 0)
+    a = render("shield", "#2FD98A").tobytes()
+    b = render("shield", "#F2555A").tobytes()
+    check("icons are color-parameterized", a != b)
+
+
 def test_design_tokens() -> None:
     """v1.6 design system: the four semantic tokens, tint math, type map."""
     from himaya import config as C
@@ -590,6 +614,7 @@ def main() -> int:
     test_order_date_and_companies(tmp)
     test_period_aware_aggregates(tmp)
     test_design_tokens()
+    test_mutation_counter_and_icons(tmp)
     test_reports(tmp)
     test_inquiries(tmp)
     test_blacklist_and_hma(tmp)

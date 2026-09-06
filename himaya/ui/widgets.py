@@ -377,6 +377,28 @@ class TrustBar(ctk.CTkFrame):
 # Canvas bar chart (revenue vs losses) — no matplotlib, keeps the app small
 # ---------------------------------------------------------------------------
 
+def bar_points(x0: float, y0: float, x1: float, y1: float, r: float = 4) -> list:
+    """
+    Bar outline with ONLY the top corners rounded (r px) and the baseline
+    flush at y1 — the conventional bar shape (v1.7: the v1.6 smooth polygon
+    rounded every corner, reading as capsules floating above the axis).
+    Explicit arc samples, no Tk smoothing. Pure + unit-testable.
+    """
+    import math
+    if y1 - y0 <= 2 * r or x1 - x0 <= 2 * r:      # too small to round
+        return [x0, y0, x1, y0, x1, y1, x0, y1]
+    pts = [x0, y1, x0, y0 + r]
+    steps = 4                                      # samples per quarter arc
+    for i in range(1, steps + 1):                  # top-left corner (180->270)
+        a = math.pi + (math.pi / 2) * i / steps
+        pts += [x0 + r + r * math.cos(a), y0 + r + r * math.sin(a)]
+    for i in range(1, steps + 1):                  # top-right corner (270->360)
+        a = (math.pi / 2) * 3 + (math.pi / 2) * i / steps
+        pts += [x1 - r + r * math.cos(a), y0 + r + r * math.sin(a)]
+    pts += [x1, y0 + r, x1, y1]
+    return pts
+
+
 class BarChart(ctk.CTkCanvas):
     """Grouped bars (two series) drawn on a canvas; redraws on resize."""
 
@@ -424,14 +446,10 @@ class BarChart(ctk.CTkCanvas):
             h2 = plot_h * (s["losses"] / top)
 
             def rbar(bx0, by0, bx1, by1, color, r=4, _s=self):
-                """Bar with a rounded TOP (spec: 3-4px radius) — smooth
-                polygon (Tk has no rounded-rect primitive)."""
-                if by1 - by0 <= r:
-                    _s.create_rectangle(bx0, by0, bx1, by1, fill=color, width=0)
-                    return
-                pts = [bx0, by1, bx0, by0 + r, bx0 + r, by0, bx1 - r, by0,
-                       bx1, by0 + r, bx1, by1]
-                _s.create_polygon(pts, smooth=True, fill=color, width=0)
+                """Rounded-TOP bar, baseline flush (v1.7: explicit arc
+                points — no smooth=, which had rounded the bottom too)."""
+                _s.create_polygon(bar_points(bx0, by0, bx1, by1, r),
+                                  fill=color, width=0)
 
             rbar(x0 - bar_w - 2, pad_t + plot_h - h1, x0 - 2,
                  pad_t + plot_h, config.COLOR_GREEN)

@@ -10,6 +10,8 @@ search (Ctrl+K), first-launch tour and optional password lock.
 
 from __future__ import annotations
 
+import time
+
 import customtkinter as ctk
 
 from .. import config
@@ -38,18 +40,20 @@ def _enable_dnd(root) -> bool:
         return False
 
 
+# v1.7: one consistent stroke-icon family (himaya.ui.icons, Feather-style,
+# drawn with PIL — offline). The emoji stays only as a no-PIL fallback.
 PAGES = [
-    ("dashboard", "nav_dashboard", "🏠"),
-    ("customers", "nav_customers", "👥"),
-    ("orders", "nav_orders", "📦"),
-    ("products", "nav_products", "🛒"),
-    ("relance", "nav_relance", "🔔"),
-    ("detector", "nav_detector", "🔍"),
-    ("time_wasters", "nav_time_wasters", "⏳"),
-    ("reports", "nav_reports", "💰"),
-    ("transfer", "nav_transfer", "🔌"),
-    ("labels", "nav_labels", "🖨️"),
-    ("settings", "nav_settings", "⚙️"),
+    ("dashboard", "nav_dashboard", "shield", "🏠"),
+    ("customers", "nav_customers", "users", "👥"),
+    ("orders", "nav_orders", "package", "📦"),
+    ("products", "nav_products", "cart", "🛒"),
+    ("relance", "nav_relance", "bell", "🔔"),
+    ("detector", "nav_detector", "search", "🔍"),
+    ("time_wasters", "nav_time_wasters", "hourglass", "⏳"),
+    ("reports", "nav_reports", "chart", "💰"),
+    ("transfer", "nav_transfer", "swap", "🔌"),
+    ("labels", "nav_labels", "printer", "🖨️"),
+    ("settings", "nav_settings", "settings", "⚙️"),
 ]
 
 
@@ -180,16 +184,53 @@ class HimayaApp(ctk.CTk):
                             sticky="e" if self.rtl else "w")
 
         # global search button (Ctrl+K)
+        # v1.7: the search field reads as an input now — raised surface,
+        # 1px border token, muted text (was a plain gray slab)
+        s_img = None
+        try:
+            from .icons import render as icon_render
+            s_img = ctk.CTkImage(
+                light_image=icon_render("search", config.COLOR_FG_DIM, 16),
+                size=(16, 16))
+        except Exception:
+            pass
         search_btn = ctk.CTkButton(
-            self.sidebar, text="🔍 " + t("gs_title", self.lang), anchor="c",
-            font=F(12), height=32, corner_radius=8, fg_color=config.COLOR_BG_3,
-            hover_color=config.COLOR_BG, text_color=config.COLOR_FG,
+            self.sidebar,
+            text=(t("gs_title", self.lang) if s_img
+                  else "🔍 " + t("gs_title", self.lang)),
+            image=s_img, compound="left", anchor="c",
+            font=F(12), height=34, corner_radius=8,
+            fg_color=config.COLOR_BG_3, border_width=1,
+            border_color=config.COLOR_BORDER,
+            hover_color=config.tint(config.COLOR_ACCENT, 0.08,
+                                    base=config.COLOR_BG_3),
+            text_color=config.COLOR_FG_DIM,
             command=self.open_global_search)
         search_btn.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
 
-        for i, (key, label_key, icon) in enumerate(PAGES, start=3):
+        self._nav_icons: dict[str, dict] = {}
+        self._icon_mode = "emoji"
+        try:
+            from .icons import render as icon_render
+            for key, _lbl, iname, _emoji in PAGES:
+                self._nav_icons[key] = {
+                    "dim": ctk.CTkImage(
+                        light_image=icon_render(iname, config.COLOR_FG_DIM, 20),
+                        size=(20, 20)),
+                    "accent": ctk.CTkImage(
+                        light_image=icon_render(iname, config.COLOR_ACCENT, 20),
+                        size=(20, 20)),
+                }
+            self._icon_mode = "vector"
+        except Exception:
+            self._nav_icons = {}      # no PIL / render issue -> emoji fallback
+
+        for i, (key, label_key, iname, emoji) in enumerate(PAGES, start=3):
+            img = self._nav_icons.get(key, {}).get("dim") \
+                if self._icon_mode == "vector" else None
+            text = t(label_key, self.lang) if img else f"{emoji}  {t(label_key, self.lang)}"
             btn = ctk.CTkButton(
-                self.sidebar, text=f"{icon}  {t(label_key, self.lang)}",
+                self.sidebar, text=text, image=img, compound="left",
                 anchor="e" if self.rtl else "w", font=F(13), height=36,
                 corner_radius=8, fg_color="transparent",
                 hover_color=config.COLOR_BG_3, text_color=config.COLOR_FG,
@@ -245,14 +286,42 @@ class HimayaApp(ctk.CTk):
                                      base=config.COLOR_BG_2) if active
                 else "transparent",
                 text_color=config.COLOR_ACCENT if active else config.COLOR_FG,
-                font=F(13, "semibold") if active else F(13))
+                font=F(13, "semibold") if active else F(13),
+                image=(self._nav_icons.get(k, {}).get
+                       ("accent" if active else "dim")
+                       if self._icon_mode == "vector" else None))
         self.page_name = name
         if name not in self._pages:
             self._pages[name] = self._page_class(name)(self.main, self)
+            self._mark_fresh(self._pages[name])   # __init__ already refreshed
         self.page = self._pages[name]
         self.page.grid(row=0, column=0, sticky="nsew")
-        if hasattr(self.page, "refresh"):
-            self.page.refresh()
+        # v1.7 (diagnosed lag fix): refreshing on EVERY switch rebuilt up to
+        # 500 Treeview rows synchronously per click (queries themselves are
+        # ~1-2 ms — measured). Now a page refreshes only when the data
+        # actually changed (db.mutation_count) or it has been hidden a
+        # while, and it is DEFERRED one idle tick so the click paints first.
+        if self._page_stale(self.page) and hasattr(self.page, "refresh"):
+            self._mark_fresh(self.page)
+            self.after(10, lambda pg=self.page: self._deferred_refresh(pg))
+
+    def _deferred_refresh(self, page) -> None:
+        """Run a page refresh after the switch has painted (guarded)."""
+        try:
+            if page is getattr(self, "page", None) and hasattr(page, "refresh"):
+                page.refresh()
+        except Exception:
+            from ..services.diagnostics import log_crash
+            log_crash("deferred-refresh")
+
+    def _mark_fresh(self, page) -> None:
+        page._refreshed_mut = self.db.mutation_count
+        page._refreshed_ts = time.time()
+
+    def _page_stale(self, page) -> bool:
+        mut_ok = getattr(page, "_refreshed_mut", None) == self.db.mutation_count
+        fresh = (time.time() - getattr(page, "_refreshed_ts", 0)) < 120
+        return not (mut_ok and fresh)
 
     def _prebuild_pages(self) -> None:
         """
@@ -264,13 +333,14 @@ class HimayaApp(ctk.CTk):
         """
         if getattr(self, "_prebuilding_off", False):
             return
-        remaining = [key for key, _lbl, _ico in PAGES
+        remaining = [key for key, *_rest in PAGES
                      if key not in self._pages]
         if not remaining:
             return
         try:
-            self._pages[remaining[0]] = self._page_class(remaining[0])(
-                self.main, self)
+            page = self._page_class(remaining[0])(self.main, self)
+            self._pages[remaining[0]] = page
+            self._mark_fresh(page)          # __init__ already refreshed (v1.7)
         except Exception:
             pass   # a failed prebuild must never break the app
         self.after(60, self._prebuild_pages)

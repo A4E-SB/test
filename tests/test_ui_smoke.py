@@ -277,20 +277,20 @@ def main() -> int:
     app._apply_rtl()
     print("  ✓ layout columns distinct in fr/en/ar (v1.1.1 fix)")
 
-    for name, _label, _icon in PAGES:
+    for name, _label, _icon, _emoji in PAGES:
         app.show_page(name)
         print(f"  ✓ page: {name}")
     app.show_page("dashboard")
 
     app.set_language("ar")
     print("  ✓ switched to Arabic")
-    for name, _label, _icon in PAGES:
+    for name, _label, _icon, _emoji in PAGES:
         app.show_page(name)
         print(f"  ✓ page (ar): {name}")
     # English pass (v1.0.3: full EN UI)
     app.set_language("en")
     print("  ✓ switched to English")
-    for name, _label, _icon in PAGES:
+    for name, _label, _icon, _emoji in PAGES:
         app.show_page(name)
     print("  ✓ all pages (en)")
     app.set_language("fr")
@@ -300,7 +300,7 @@ def main() -> int:
     # at the dead frame -> show_page's grid_remove raised TclError and
     # aborted, leaving a blank window and dead navigation)
     from himaya.ui.app import PAGES as ALL_PAGES
-    for name, _lbl, _ico in ALL_PAGES:
+    for name, _lbl, _ico, _emoji in ALL_PAGES:
         app.show_page(name)
         old_page = app.page
         app.set_language("ar")
@@ -406,6 +406,53 @@ def main() -> int:
     dlg2 = OrderDialog(app, app)
     print("  ✓ OrderDialog")
     dlg2.close()
+
+    # ---- v1.7: navigation must not refresh clean pages (lag fix) -------------
+    from himaya.ui.app import PAGES as _P
+    app.show_page("orders")
+    page = app.page
+    app._mark_fresh(page)
+    calls = []
+    page.refresh = lambda: calls.append(1)
+    app.show_page("customers")
+    app.show_page("orders")            # away and back with ZERO writes
+    assert calls == [], "clean page re-rendered on switch (the lag bug)"
+    print("  ✓ v1.7: clean pages do NOT refresh on switch")
+    app.db.mutation_count += 1         # simulate a data change
+    assert app._page_stale(page) is True
+    app.show_page("orders")            # marks fresh + schedules the deferred
+    assert app._page_stale(app.page) is False
+    calls.clear()
+    app._deferred_refresh(app.page)    # the deferred callback itself
+    assert calls == [1], "dirty page must refresh (deferred path)"
+    old = app.page
+    app.show_page("customers")
+    calls.clear()
+    app._deferred_refresh(old)         # not the current page anymore
+    assert calls == [], "deferred refresh must not fire for stale nav"
+    print("  ✓ v1.7: data change -> one deferred refresh; stale nav guarded")
+
+    # ---- v1.7: bars are rounded on TOP only, baseline flush -------------------
+    from himaya.ui.widgets import bar_points as _bp
+    pts = _bp(10, 100, 44, 200, 4)
+    xs_, ys_ = pts[0::2], pts[1::2]
+    assert ys_[0] == 200 and ys_[-1] == 200, "baseline must be flush"
+    assert min(ys_) >= 100 and max(ys_) <= 200
+    assert abs(xs_[1] - 10) < 1e-6 and abs(ys_[1] - 104) < 1e-6, \
+        "sides straight until the top corner"
+    flat = _bp(10, 196, 44, 200, 4)     # too short to round
+    assert len(flat) == 8, "degenerate bar falls back to a rectangle"
+    print("  ✓ v1.7: bar_points top-only rounding, flush baseline")
+
+    # ---- v1.7: sidebar contracts ----------------------------------------------
+    assert app._icon_mode == "vector", "PIL present -> vector icon set"
+    for key, _lbl, _iname, _emoji in _P:
+        assert key in app._nav_icons and "accent" in app._nav_icons[key]
+    _app_src = Path("himaya/ui/app.py").read_text(encoding="utf-8")
+    assert "border_width=1" in _app_src and "border_color=config.COLOR_BORDER" in _app_src, \
+        "search box must use surface+border tokens"
+    assert "smooth=True" not in _app_src.split("class BarChart")[0], "no capsule bars"
+    print("  ✓ v1.7: vector nav icons for every page; search box themed")
 
     # ---- v1.6 design system contracts ---------------------------------------
     from himaya.ui import widgets as _Ws
