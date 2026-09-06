@@ -153,6 +153,174 @@ def test_orders_and_aggregates(tmp: Path) -> None:
     check("money_saved counts blocked shipping", orders.money_saved(db) == 650.0)
 
 
+def test_mutation_counter_and_icons(tmp: Path) -> None:
+    """v1.7: data-change signal + the offline stroke-icon set."""
+    from himaya.models import customers
+
+    db = make_db(tmp)
+    before = db.mutation_count
+    db.query("SELECT COUNT(*) FROM customers")           # read: no bump
+    check("reads do not bump mutations", db.mutation_count == before)
+    customers.create(db, "Mut", "0555443322")             # write: bump
+    check("writes bump mutations", db.mutation_count == before + 1)
+
+    from himaya.ui.icons import render, ICONS
+    check("15 icons in the set (v1.7.1: +truck/check/ghost)",
+          len(ICONS) == 15)
+    for n in ICONS:
+        im = render(n, "#2FD98A", 20)
+        check(f"icon {n} renders 20x20 RGBA",
+              im.size == (20, 20) and im.mode == "RGBA")
+        # v1.7.1 regression guard: icons once rendered squished into the
+        # top-left quarter (unscaled coords on the supersampled canvas).
+        # At size 96 the ink bbox must be centered and span the grid.
+        big = render(n, "#2FD98A", 96)
+        bbox = big.getchannel("A").getbbox()
+        ok = bool(bbox)
+        if ok:
+            x0, y0, x1, y1 = bbox
+            cx, cy, span = (x0 + x1) / 2, (y0 + y1) / 2, max(x1 - x0, y1 - y0)
+            ok = 36 <= cx <= 60 and 36 <= cy <= 60 and span >= 55
+        check(f"icon {n} centered & full-size (k-scaling)", ok)
+    a = render("shield", "#2FD98A").tobytes()
+    b = render("shield", "#F2555A").tobytes()
+    check("icons are color-parameterized", a != b)
+    check("icon renders are cached (v1.7.6)",
+          render("bell", "#2FD98A", 20) is render("bell", "#2FD98A", 20))
+
+
+def test_diagnostics_timings() -> None:
+    """v1.7.5: the in-app profiler (Settings -> Diagnostics)."""
+    from himaya import config
+    from himaya.services import diagnostics as dg
+    dg.timings.clear()
+    dg.add_timing("refresh:orders", 42.0)
+    dg.add_timing("refresh:orders", 58.0)
+    with dg.timeit("build:reports"):
+        pass                                   # ~0 ms
+    rep = dg.report()
+    check("report lists operations",
+          "refresh:orders" in rep and "build:reports" in rep)
+    check("report shows avg/max", "avg=" in rep and "max=" in rep)
+    check("ring buffer bounded", len(dg.timings["refresh:orders"]) == 2)
+    # slow ops (>150ms) are appended to error.log
+    err = config.DATA_DIR / "error.log"
+    if err.exists():
+        err.unlink()
+    dg.add_timing("refresh:orders", 300.0)
+    check("slow ops land in error.log",
+          err.exists() and "SLOW refresh:orders" in err.read_text(encoding="utf-8"))
+
+
+def test_design_tokens() -> None:
+    """v1.6 design system: the four semantic tokens, tint math, type map."""
+    from himaya import config as C
+
+    check("brand accent is the protection green", C.COLOR_ACCENT == "#2FD98A")
+    check("success == accent (one brand color)", C.COLOR_GREEN == C.COLOR_ACCENT)
+    check("dark surfaces are the spec tokens",
+          (C.COLOR_BG, C.COLOR_BG_2, C.COLOR_BG_3, C.COLOR_BORDER)
+          == ("#0A0C12", "#141724", "#1B1F2E", "#232838"))
+    semantic = {C.COLOR_GREEN, C.COLOR_RED, C.COLOR_ORANGE, C.COLOR_INFO,
+                C.COLOR_FG_DIM}
+    bad = {st: c for st, c in C.STATUS_COLORS.items() if c not in semantic}
+    check(f"every status maps to a semantic token {bad or ''}", not bad)
+    check("paid/delivered are success",
+          C.STATUS_COLORS["paid"] == C.STATUS_COLORS["delivered"] == C.COLOR_GREEN)
+    check("waiting_deposit is warning",
+          C.STATUS_COLORS["waiting_deposit"] == C.COLOR_ORANGE)
+    check("ghost/fake/refused are danger",
+          C.STATUS_COLORS["ghosted"] == C.STATUS_COLORS["fake_payment"]
+          == C.STATUS_COLORS["refused"] == C.COLOR_RED)
+    # tint: ~13% of the color over the surface, hex-form, never solid
+    t = C.tint(C.COLOR_ACCENT)
+    check("tint returns hex", t.startswith("#") and len(t) == 7)
+    r, g, b = (int(t[i:i + 2], 16) for i in (1, 3, 5))
+    base = (0x14, 0x17, 0x24)
+    check("tint is between surface and color",
+          base[0] < r <= 0x2F and base[1] < g <= 0xD9 and base[2] < b <= 0x8A)
+    check("tint alpha=0 is the base", C.tint(C.COLOR_RED, 0) == "#141724")
+
+
+def test_period_aware_aggregates(tmp: Path) -> None:
+    """v1.5: dashboard figures must respect the selected period."""
+    from datetime import date as _d, timedelta as _td
+    from himaya.models.orders import (money_saved, total_lost, completion_rate,
+                                      paid_revenue, pending_revenue, create)
+
+    db = make_db(tmp)
+    cid = customers.create(db, "Period Client", "0770001122", wilaya="Alger")
+    old = (_d.today() - _td(days=20)).isoformat()
+    create(db, cid, "Ancien bloqué", 1000, status="blocked",
+           shipping_cost=700, order_date=old)
+    create(db, cid, "Ancien payé", 2000, status="paid",
+           order_date=old)
+    create(db, cid, "Bloqué récent", 1000, status="blocked", shipping_cost=500)
+    create(db, cid, "Payé récent", 3000, status="paid")
+    create(db, cid, "En cours", 1500, status="confirmed")
+
+    check("saved all-time", money_saved(db) == 1200)
+    check("saved 7d window", money_saved(db, days=7) == 500)
+    check("lost all-time == lost 7d (no losses yet)",
+          total_lost(db) == total_lost(db, days=7) == 0)
+    create(db, cid, "Fantôme", 900, status="ghosted", shipping_cost=600)
+    check("lost 7d sees fresh ghost", total_lost(db, days=7) == 600)
+    check("today window sees the fresh ghost", total_lost(db, days=0) == 600)
+    check("revenue all-time", paid_revenue(db) == 5000)
+    check("revenue 7d", paid_revenue(db, days=7) == 3000)
+    check("pending 7d", pending_revenue(db, days=7) == 1500)
+    # at this point: 6 orders all-time (2 paid), 4 in the last 7d (1 paid)
+    check("completion all-time (2/6)",
+          abs(completion_rate(db) - 33.3333) < 0.001)
+    check("completion 7d (1/4)",
+          abs(completion_rate(db, days=7) - 25.0) < 0.001)
+
+
+def test_order_date_and_companies(tmp: Path) -> None:
+    """v1.4: custom order date + custom delivery companies."""
+    from datetime import date as _date
+    from himaya.models.orders import parse_date_text, create, update, get
+    from himaya.models import customers, settings_store
+
+    db = make_db(tmp)
+    cid = customers.create(db, "Dated Client", "0669998877", wilaya="Alger")
+
+    # -- date parsing: ISO, day-first, both separators, empty, invalid
+    check("parse ISO", parse_date_text("2026-09-12") == "2026-09-12")
+    check("parse DD/MM/YYYY", parse_date_text("12/09/2026") == "2026-09-12")
+    check("parse DD-MM-YYYY", parse_date_text("12-09-2026") == "2026-09-12")
+    check("parse YYYY/MM/DD", parse_date_text("2026/09/12") == "2026-09-12")
+    check("parse empty -> ''", parse_date_text("   ") == "")
+    check("parse 31/02 invalid", parse_date_text("31/02/2026") is None)
+    check("parse garbage invalid", parse_date_text("soon") is None)
+    check("parse partial invalid", parse_date_text("12/09") is None)
+
+    # -- order date stored / updated / defaulted
+    oid = create(db, cid, "Produit daté", 1000, order_date="15/01/2026",
+                 delivery_method="SpeedEx")
+    check("custom date stored (ISO)",
+          get(db, oid)["date"] == "2026-01-15")
+    update(db, oid, date="2026-02-20")
+    check("date updated", get(db, oid)["date"] == "2026-02-20")
+    oid2 = create(db, cid, "Autre", 500, order_date="")
+    check("empty date -> today",
+          get(db, oid2)["date"] == _date.today().isoformat())
+
+    # -- delivery companies: preset + custom saved + used-on-order
+    base = settings_store.delivery_companies(db)
+    check("presets listed", "Yalidine" in base and "Autre" in base)
+    check("company used on order listed", "SpeedEx" in base)
+    lst = settings_store.add_delivery_company(db, "SpeedEx")   # already known
+    check("no duplicate company", lst.count("SpeedEx") == 1)
+    lst = settings_store.add_delivery_company(db, "Kazi Tour")
+    check("custom company added", "Kazi Tour" in lst)
+    check("custom company persisted (settings)",
+          "Kazi Tour" in settings_store.delivery_companies(
+              Database(db.path)))     # reopen the same file
+    check("add empty ignored",
+          settings_store.add_delivery_company(db, "  ") == lst)
+
+
 def test_reports(tmp: Path) -> None:
     print("[reports]")
     db = make_db(tmp)
@@ -478,6 +646,14 @@ def main() -> int:
     test_customers_and_trust(tmp)
     test_phone_risk(tmp)
     test_orders_and_aggregates(tmp)
+    test_order_date_and_companies(tmp)
+    test_period_aware_aggregates(tmp)
+    test_design_tokens()
+    test_diagnostics_timings()
+    test_alert_index_on_existing_db()
+    test_report_footer()
+    test_font_glyph_coverage()
+    test_mutation_counter_and_icons(tmp)
     test_reports(tmp)
     test_inquiries(tmp)
     test_blacklist_and_hma(tmp)
@@ -498,6 +674,99 @@ def main() -> int:
         for f in FAILURES:
             print("  -", f)
     return 1 if FAIL else 0
+
+
+def test_alert_index_on_existing_db():
+    """v1.7.10: idx_customers_trust must appear even on databases created
+    before the index existed (schema.sql re-runs with IF NOT EXISTS)."""
+    import tempfile
+    from pathlib import Path
+    from himaya.database.db import Database
+    tmp = Path(tempfile.mkdtemp()) / "idx.db"
+    db = Database(tmp)
+    db.conn.execute("DROP INDEX idx_customers_trust")
+    db.conn.commit(); db.conn.close()
+    db2 = Database(tmp)
+    names = [r[1] for r in db2.conn.execute("PRAGMA index_list('customers')")]
+    check("trust index retrofits", "idx_customers_trust" in names, str(names))
+    # v1.7.11: the partial scammer index retrofits too, and the planner
+    # must USE it (a leading-wildcard LIKE can never seek a normal index —
+    # only a partial index pre-selects the matching rows).
+    check("scammer partial index retrofits",
+          "idx_customers_scammer" in names, str(names))
+    q = ("SELECT name FROM customers WHERE (',' || tags || ',') "
+         "LIKE '%,scammer,%' ORDER BY trust_score ASC LIMIT 5")
+    plan = " | ".join(r[3] for r in db2.conn.execute("EXPLAIN QUERY PLAN " + q))
+    check("planner uses partial index",
+          "USING INDEX idx_customers_scammer" in plan, plan)
+
+
+def test_report_footer():
+    """v1.7.12: set_report_footer lines are appended to every report."""
+    from himaya.services import diagnostics
+    diagnostics.add_timing("footer_probe", 1.0)
+    diagnostics.set_report_footer("db: customers=42  scammer_idx=yes")
+    rep = diagnostics.report()
+    check("footer in report", "db: customers=42  scammer_idx=yes" in rep)
+    check("timings still present", "footer_probe" in rep)
+
+
+def test_font_glyph_coverage():
+    """v1.7.14: refresh-path glyphs must exist in the bundled Arabic font.
+    Parsed straight from the TTF cmap: • — » are the whitelist the UI
+    relies on (Segoe UI covers them natively in Latin mode). A symbol
+    outside the font triggers Tk's per-label font-fallback hunt, which
+    measured ~33ms/label on weak machines."""
+    import struct
+    from himaya import config
+    want = {"•": 0x2022, "—": 0x2014, "»": 0xBB, "A": 0x41, "0": 0x30}
+    for name in ("Tajawal-Regular.ttf", "Tajawal-Bold.ttf"):
+        data = (config.ASSETS_DIR / "fonts" / name).read_bytes()
+        n = struct.unpack(">H", data[4:6])[0]
+        cmap = next(struct.unpack(">4sIII", data[12+16*i:28+16*i])[2]
+                    for i in range(n)
+                    if data[12+16*i:16+16*i] == b"cmap")
+        nt = struct.unpack(">H", data[cmap+2:cmap+4])[0]
+        subs = [cmap + struct.unpack(">I", data[cmap+8+8*i:cmap+12+8*i])[0]
+                for i in range(nt)]
+        codes = set()
+        for sub in subs:
+            fmt = struct.unpack(">H", data[sub:sub+2])[0]
+            if fmt == 4:
+                segX2 = struct.unpack(">H", data[sub+6:sub+8])[0]
+                seg = segX2 // 2
+                ends = struct.unpack(f">{seg}H", data[sub+14:sub+14+segX2])
+                starts = struct.unpack(f">{seg}H",
+                                       data[sub+16+segX2:sub+16+2*segX2])
+                deltas = struct.unpack(f">{seg}h",
+                                       data[sub+16+2*segX2:sub+16+3*segX2])
+                rngs_off = sub + 16 + 3 * segX2
+                rngs = struct.unpack(f">{seg}H", data[rngs_off:rngs_off+segX2])
+                for s_, e_, d_, r_ in zip(starts, ends, deltas, rngs):
+                    if e_ - s_ > 500:
+                        e_ = s_ + 500    # cmap sanity cap (never hit by want)
+                    for c in range(s_, e_ + 1):
+                        if r_ == 0:
+                            codes.add(c)
+                        else:
+                            gi = struct.unpack(
+                                ">H",
+                                data[rngs_off+r_+2*(c-s_):
+                                     rngs_off+r_+2*(c-s_)+2])[0]
+                            if gi:
+                                codes.add(c)
+            elif fmt == 12:
+                ng = struct.unpack(">I", data[sub+12:sub+16])[0]
+                for i in range(ng):
+                    s_, e_, _ = struct.unpack(
+                        ">III", data[sub+16+12*i:sub+28+12*i])
+                    codes.update(range(s_, min(e_, s_+30000)+1))
+        missing = [ch for ch, cp in want.items() if cp not in codes]
+        check(f"{name} covers UI whitelist", not missing,
+              "missing: " + ",".join(missing))
+        check(f"{name} lacks fallback traps (as expected)",
+              all(cp not in codes for cp in (0x25CF, 0x2713, 0x1F512)),
+              "coverage changed — re-audit refresh-path glyphs")
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import customtkinter as ctk
 from .. import config
 from ..models import orders as orders_model
 from ..services import labels as labels_service
+from . import widgets as W
 from .widgets import (F, make_tree, row_tag, status_badge_text,
                       trust_badge_text)
 from .widgets import bind_tree_tooltips, card as surface
@@ -48,7 +49,7 @@ class LabelsPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
-        ctk.CTkLabel(self, text=app.t("lb_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("lb_title"), font=F(21, "extrabold"),
                      anchor="w").grid(row=0, column=0, sticky="ew", padx=16, pady=(10, 2))
         ctk.CTkLabel(self, text=app.t("lb_desc"), font=F(12),
                      text_color=config.COLOR_FG_DIM, anchor="w", justify="left",
@@ -82,7 +83,7 @@ class LabelsPage(ctk.CTkFrame):
         cols = [("id", "#", 46), ("date", app.t("date"), 88),
                 ("customer", app.t("ord_customer"), 190), ("phone", app.t("phone"), 120),
                 ("product", app.t("product"), 170), ("price", app.t("price"), 90),
-                ("status", app.t("status"), 110), ("wilaya", app.t("wilaya"), 130),
+                ("status", app.t("status"), 132), ("wilaya", app.t("wilaya"), 130),
                 ("risk", app.t("cust_trust"), 150)]
         self.tree = make_tree(card, cols, height=15)
         self.tree.grid(row=1, column=0, sticky="nsew", padx=10, pady=(2, 12))
@@ -92,16 +93,16 @@ class LabelsPage(ctk.CTkFrame):
 
     def refresh(self) -> None:
         db, lang = self.app.db, self.app.lang
-        self.tree.delete(*self.tree.get_children())
-        for o in orders_model.list_orders(db, limit=300):
-            # v1.2: the SAME trust icon set as Customers (score-based) —
-            # previously tag-based here, score-based there
-            self.tree.insert("", "end", iid=str(o["id"]), values=(
-                o["id"], o["date"], o["customer_name"], o["phone"], o["product"],
-                f"{o['price']:,.0f}".replace(",", " "),
-                status_badge_text(o["status"], lang),
-                o["wilaya"], trust_badge_text(o["trust_score"])),
-                tags=(row_tag(o["status"]),))
+        # incremental fill (v1.7.2) — same trust icons as Customers (v1.2)
+        W.fill_tree_chunked(self.tree, [{
+            "iid": str(o["id"]),
+            "values": (o["id"], o["date"], o["customer_name"], o["phone"],
+                       o["product"],
+                       f"{o['price']:,.0f}".replace(",", " "),
+                       status_badge_text(o["status"], lang),
+                       o["wilaya"], trust_badge_text(o["trust_score"])),
+            "tags": (row_tag(o["status"]),),
+        } for o in orders_model.list_orders(db, limit=200)])
         self.update_sel()
 
     def update_sel(self) -> None:
@@ -109,7 +110,7 @@ class LabelsPage(ctk.CTkFrame):
         self.sel_lbl.configure(text=self.app.t("lb_selected", n=n))
 
     def select_confirmed(self) -> None:
-        # the status cell holds the badge text ("●  Label") — compare to that
+        # the status cell holds the badge text ("•  Label") — compare to that
         badge = status_badge_text("confirmed", self.app.lang)
         self.tree.selection_set([iid for iid in self.tree.get_children()
                                  if self.tree.set(iid, "status") == badge])

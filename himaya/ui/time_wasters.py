@@ -16,6 +16,8 @@ from ..models import settings_store
 from ..models import templates_store
 from ..services import trust
 from .widgets import F, copy_to_clipboard, make_tree
+from ..services.diagnostics import add_timing as _phase
+import time as _time
 
 CATEGORY_KEYS = {"deposit": "tw_cat_deposit", "negotiation": "tw_cat_negotiation",
                  "ghost": "tw_cat_ghost", "warning": "tw_cat_warning",
@@ -31,7 +33,7 @@ class TimeWastersPage(ctk.CTkFrame):
         self.grid_columnconfigure(1, weight=4)
         self.grid_rowconfigure(1, weight=1)
 
-        ctk.CTkLabel(self, text=app.t("tw_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("tw_title"), font=F(21, "extrabold"),
                      anchor="w").grid(row=0, column=0, columnspan=2, sticky="ew",
                                       padx=16, pady=(10, 2))
         ctk.CTkLabel(self, text=app.t("tw_desc"), font=F(12),
@@ -108,8 +110,11 @@ class TimeWastersPage(ctk.CTkFrame):
 
         self.tpl_frame = ctk.CTkScrollableFrame(right, fg_color="transparent")
         self.tpl_frame.pack(fill="both", expand=True, padx=8, pady=6)
+        self._tpl_sig = None      # (v1.7.8) skip template rebuilds when unchanged
 
+        _bw = _time.perf_counter()
         self.refresh()
+        _phase("tw.init.refresh", (_time.perf_counter() - _bw) * 1000)
 
     # ------------------------------------------------------------------
 
@@ -157,9 +162,20 @@ class TimeWastersPage(ctk.CTkFrame):
 
     def load_templates(self) -> None:
         db, lang = self.app.db, self.app.lang
+        cat_sel = self.cat_menu.get()
+        # v1.7.8: template cards (one CTkTextbox each — the heaviest widget
+        # on the page) are only rebuilt when something actually changed.
+        try:
+            n_tpl = db.scalar("SELECT COUNT(*) FROM templates") or 0
+        except Exception:
+            n_tpl = -1
+        sig = (cat_sel, lang, n_tpl)
+        if sig == getattr(self, "_tpl_sig", None):
+            return
+        self._tpl_sig = sig
+        _tt = _time.perf_counter()
         for w in self.tpl_frame.winfo_children():
             w.destroy()
-        cat_sel = self.cat_menu.get()
         cat = ""
         for key, cat_key in CATEGORY_KEYS.items():
             if cat_sel == self.app.t(cat_key):
@@ -167,23 +183,35 @@ class TimeWastersPage(ctk.CTkFrame):
         tpl_list = (templates_store.by_category(db, cat) if cat
                     else templates_store.all_templates(db))
         for tpl in tpl_list:
-            card = ctk.CTkFrame(self.tpl_frame, fg_color=config.COLOR_BG, corner_radius=10)
-            card.pack(fill="x", pady=4, padx=4)
-            head = ctk.CTkFrame(card, fg_color="transparent")
-            head.pack(fill="x", padx=10, pady=(8, 0))
+            # v1.7.11: FLAT card — 2 plain labels, zero frames/buttons.
+            # The v1.7.9 card still carried 3 CTkFrames + a CTkButton per
+            # template (4 canvas-backed widgets x ~12 templates = the
+            # measured 298ms). Click anywhere on the card to copy.
             cat_name = self.app.t(CATEGORY_KEYS.get(tpl["category"], "tw_cat_general"))
-            ctk.CTkLabel(head, text=f"{tpl['name']}  [{cat_name}]", font=F(12, "bold"),
-                         anchor="w").pack(side="left")
             body = tpl["text_ar"] if lang == "ar" else tpl["text_fr"]
-            txt = ctk.CTkTextbox(card, height=76, fg_color="transparent",
-                                 font=F(12), wrap="word")
-            txt.insert("1.0", body)
-            txt.configure(state="disabled")
-            txt.pack(fill="x", padx=10, pady=4)
-            foot = ctk.CTkFrame(card, fg_color="transparent")
-            foot.pack(fill="x", padx=10, pady=(0, 8))
-            ctk.CTkButton(foot, text=self.app.t("copy"), width=90, height=28,
-                          command=lambda b=body: self.copy_tpl(b)).pack(side="right")
+            head_lbl = ctk.CTkLabel(
+                self.tpl_frame, text=f"▸ {tpl['name']}  [{cat_name}]",
+                font=F(12, "bold"), anchor="w", cursor="hand2")
+            head_lbl.pack(fill="x", pady=(8, 1))
+            body_lbl = ctk.CTkLabel(
+                self.tpl_frame, text=body, font=F(11), cursor="hand2",
+                text_color=config.COLOR_FG_DIM,
+                justify="left", anchor="w", wraplength=430)
+            body_lbl.pack(fill="x", pady=(0, 2))
+            # bind each widget AND its internal children — whichever layer
+            # actually receives the click (CTk internals vary), the copy
+            # fires; one click still triggers exactly one handler.
+            for w in (head_lbl, body_lbl):
+                targets = [w]
+                try:
+                    targets.extend(w.winfo_children())
+                except Exception:
+                    pass
+                for t in targets:
+                    t.bind("<Button-1>",
+                           lambda _e, b=body: self.copy_tpl(b))
+
+        _phase("tw.refresh.templates", (_time.perf_counter() - _tt) * 1000)
 
     def copy_tpl(self, body: str) -> None:
         """Copy template with the seller's CCP/BaridiMob info substituted."""

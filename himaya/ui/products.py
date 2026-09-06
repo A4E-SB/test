@@ -15,7 +15,7 @@ import customtkinter as ctk
 
 from .. import config
 from ..models import products as products_model
-from .widgets import F, make_tree, rtl_anchor, rtl_side
+from .widgets import F, HimayaDialog, fit_geometry, make_tree, rtl_anchor, rtl_side
 from .widgets import bind_tree_tooltips, card as surface
 
 
@@ -28,7 +28,7 @@ class ProductsPage(ctk.CTkFrame):
 
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, sticky="ew", padx=8, pady=(4, 2))
-        ctk.CTkLabel(top, text=app.t("prod_title"), font=F(22, "bold"),
+        ctk.CTkLabel(top, text=app.t("prod_title"), font=F(21, "extrabold"),
                  anchor=rtl_anchor(app)).pack(side=rtl_side(app))
         ctk.CTkButton(top, text=app.t("prod_add"), height=36,
                       fg_color=config.COLOR_GREEN, hover_color="#27ae60",
@@ -122,7 +122,7 @@ class ProductsPage(ctk.CTkFrame):
         self.tree.see(str(pid))
 
 
-class ProductDialog(ctk.CTkToplevel):
+class ProductDialog(HimayaDialog):
     """Create / edit a catalog product."""
 
     def __init__(self, master, app, product_id: int | None = None, on_saved=None):
@@ -133,10 +133,9 @@ class ProductDialog(ctk.CTkToplevel):
         editing = product_id is not None
         self.title(self.app.t("edit" if editing else "prod_add"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("420x330")
+        fit_geometry(self, 420, 330)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=self.app.t("edit" if editing else "prod_add"),
                      font=F(18, "bold")).pack(pady=(14, 4))
@@ -197,6 +196,6 @@ class ProductDialog(ctk.CTkToplevel):
             products_model.create(db, self.name.get().strip(), cost_price=cost,
                                   sale_price=sale, quantity=qty, low_stock=low)
         self.app.toast(self.app.t("prod_saved"), "ok")
-        self.destroy()
+        self.close()
         if self.on_saved:
             self.on_saved()

@@ -6,6 +6,7 @@ risk check and the 'Block order' anti-scam flow, label shortcut.
 from __future__ import annotations
 
 import tkinter as tk
+from datetime import date
 from tkinter import messagebox
 
 import customtkinter as ctk
@@ -18,7 +19,7 @@ from ..models import settings_store
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
 from . import widgets as W
-from .widgets import F, make_tree, row_tag
+from .widgets import F, HimayaDialog, make_tree, row_tag
 
 
 class OrdersPage(ctk.CTkFrame):
@@ -31,7 +32,7 @@ class OrdersPage(ctk.CTkFrame):
         # ---- toolbar ----------------------------------------------------------
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, sticky="ew", padx=8, pady=(4, 2))
-        ctk.CTkLabel(top, text=app.t("ord_title"), font=F(22, "bold"),
+        ctk.CTkLabel(top, text=app.t("ord_title"), font=F(21, "extrabold"),
                  anchor=W.rtl_anchor(app)).pack(side=W.rtl_side(app))
         ctk.CTkButton(top, text=app.t("ord_new"), height=36, fg_color=config.COLOR_GREEN,
                       hover_color="#27ae60",
@@ -87,7 +88,7 @@ class OrdersPage(ctk.CTkFrame):
                 ("customer", app.t("ord_customer"), 170), ("phone", app.t("phone"), 118),
                 ("product", app.t("product"), 150), ("price", app.t("price"), 88),
                 ("dep", app.t("col_deposit"), 78),
-                ("status", app.t("status"), 110), ("delivery", app.t("col_delivery"), 92),
+                ("status", app.t("status"), 132), ("delivery", app.t("col_delivery"), 92),
                 ("wilaya", app.t("wilaya"), 120)]
         self.tree = make_tree(list_frame, cols, height=17)
         self.tree.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
@@ -96,28 +97,41 @@ class OrdersPage(ctk.CTkFrame):
         self.tree.bind("<Delete>", lambda e: self.delete_order())
 
         # ---- status change bar -----------------------------------------------------
+        # v1.3 layout rule: the 12 status chips live in a HORIZONTALLY
+        # SCROLLABLE strip -- they can never clip the last chip ("Block...")
+        # or squeeze the right-side buttons, whatever the window width.
         bar = ctk.CTkFrame(list_frame, fg_color="transparent")
         bar.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
-        ctk.CTkLabel(bar, text=app.t("status") + " :",
-                     font=F(11), text_color=config.COLOR_FG_DIM).pack(side="left")
-        self.status_btns = []
-        for s in config.ALL_STATUSES:
-            color = config.STATUS_COLORS.get(s, config.COLOR_BG_3)
-            btn = ctk.CTkButton(bar, text=f"●  {t(f'st_{s}', app.lang)}",
-                                height=26, width=88,
-                                fg_color=config.COLOR_BG_3, hover_color=color,
-                                text_color=color, font=F(10, "bold"),
-                                command=lambda st=s: self.set_status(st))
-            btn.pack(side="left", padx=2)
-            self.status_btns.append(btn)
 
-        self.count_lbl = ctk.CTkLabel(bar, text="", font=F(11),
+        right = ctk.CTkFrame(bar, fg_color="transparent")
+        right.pack(side="right")
+        self.count_lbl = ctk.CTkLabel(right, text="", font=F(11),
                                       text_color=config.COLOR_FG_DIM)
         self.count_lbl.pack(side="right")
-        ctk.CTkButton(bar, text=self.app.t("edit"), height=26, width=70,
+        ctk.CTkButton(right, text=self.app.t("edit"), height=26, width=70,
                       command=self.edit_order).pack(side="right", padx=4)
-        ctk.CTkButton(bar, text="🖨️", height=26, width=44, fg_color=config.COLOR_BG_3,
+        ctk.CTkButton(right, text="PDF", height=26, width=48,
+                      fg_color=config.COLOR_BG_3,
                       command=self.print_labels).pack(side="right", padx=2)
+
+        chips = ctk.CTkScrollableFrame(bar, orientation="horizontal",
+                                       height=36, fg_color="transparent")
+        chips.pack(side="left", fill="x", expand=True)
+        self.status_btns = []
+        for st_name in config.ALL_STATUSES:
+            color = config.STATUS_COLORS.get(st_name, config.COLOR_BG_3)
+            # v1.6: tinted pill chips (semantic tint bg + semantic text),
+            # fully rounded, one consistent system with table row tints
+            btn = ctk.CTkButton(chips, text=f"•  {t(f'st_{st_name}', app.lang)}",
+                                height=26, width=92, corner_radius=13,
+                                fg_color=config.tint(color, 0.13,
+                                                     base=config.COLOR_BG_2),
+                                hover_color=config.tint(color, 0.24,
+                                                        base=config.COLOR_BG_2),
+                                text_color=color, font=F(10, "semibold"),
+                                command=lambda st=st_name: self.set_status(st))
+            btn.pack(side="left", padx=2)
+            self.status_btns.append(btn)
         self.refresh()
 
     # ------------------------------------------------------------------
@@ -130,18 +144,25 @@ class OrdersPage(ctk.CTkFrame):
             if status_label == (self.app.t("all") if i == 0 else t(f"st_{key}", lang)):
                 status = key
         wilaya = "" if self.f_wilaya.get() == self.app.t("all") else self.f_wilaya.get()
+        # 200 rows cap: ~17 are visible; 500 made every rebuild AND every
+        # page map 2.5x more expensive (part of the v1.7.1 switch-lag fix)
         rows = orders_model.list_orders(
             db, status=status, wilaya=wilaya,
             date_from=self.f_from.get().strip(), date_to=self.f_to.get().strip(),
-            query=self.f_query.get())
-        self.tree.delete(*self.tree.get_children())
-        for o in rows:
-            self.tree.insert("", "end", iid=str(o["id"]), values=(
-                o["id"], o["date"], o["customer_name"], o["phone"], o["product"],
-                f"{o['price']:,.0f}".replace(",", " "),
-                (f"{o['deposit']:,.0f}".replace(",", " ") if o["deposit"] else "—"),
-                W.status_badge_text(o["status"], lang),
-                o["delivery_method"], o["wilaya"]), tags=(row_tag(o["status"]),))
+            query=self.f_query.get(), limit=200)
+        # incremental fill (v1.7.2): first rows now, the rest in idle
+        # slices — a 200-row rebuild was one long blocking burst
+        W.fill_tree_chunked(self.tree, [{
+            "iid": str(o["id"]),
+            "values": (o["id"], o["date"], o["customer_name"], o["phone"],
+                       o["product"],
+                       f"{o['price']:,.0f}".replace(",", " "),
+                       (f"{o['deposit']:,.0f}".replace(",", " ")
+                        if o["deposit"] else "—"),
+                       W.status_badge_text(o["status"], lang),
+                       o["delivery_method"], o["wilaya"]),
+            "tags": (row_tag(o["status"]),),
+        } for o in rows])
         total = sum(r["price"] for r in rows)
         self.count_lbl.configure(
             text=self.app.t("ord_new_orders_count", n=len(rows)) + " • "
@@ -227,13 +248,17 @@ class OrdersPage(ctk.CTkFrame):
         BulkEditDialog(self, self.app, ids, on_done=lambda: self.refresh())
 
     def focus_order(self, oid: int) -> None:
-        """Select one order (global search jumps here)."""
-        self.tree.selection_set(str(oid))
-        self.tree.focus(str(oid))
-        self.tree.see(str(oid))
+        """Select one order (global search jumps here). The row may still
+        be arriving in an idle fill slice -> retry once shortly after."""
+        try:
+            self.tree.selection_set(str(oid))
+            self.tree.focus(str(oid))
+            self.tree.see(str(oid))
+        except tk.TclError:
+            self.after(80, lambda: self.focus_order(oid))
 
 
-class OrderDialog(ctk.CTkToplevel):
+class OrderDialog(HimayaDialog):
     """Create / edit an order, with live phone risk check + block flow."""
 
     def __init__(self, master, app, order_id: int | None = None, on_saved=None):
@@ -245,28 +270,49 @@ class OrderDialog(ctk.CTkToplevel):
         editing = order_id is not None
         self.title(self.app.t("edit" if editing else "ord_new"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("470x700")
-        self.resizable(False, False)
+        # v1.4.2: fit the screen (DPI-aware) + let the user resize; the form
+        # scrolls, and Save/Cancel can never end up below the screen edge.
+        W.fit_geometry(self, 480, 730)
+        self.resizable(True, True)
+        self.minsize(460, 430)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
-        ctk.CTkLabel(self, text=self.app.t("edit" if editing else "ord_new"),
-                     font=F(18, "bold")).pack(pady=(14, 2))
+        # ---- bottom bar (OUTSIDE the scroll area: always visible) -----------
+        btns = ctk.CTkFrame(self, fg_color="transparent")
+        btns.pack(side="bottom", fill="x", padx=24, pady=10)
+        ctk.CTkButton(btns, text=app.t("cancel"), fg_color="transparent",
+                      text_color=config.COLOR_FG_DIM, border_width=1,
+                      command=self.close).pack(side="right", padx=4)
+        ctk.CTkButton(btns, text=app.t("save"), width=120,
+                      command=self.save).pack(side="right", padx=4)
 
-        # customer picker (existing by phone/name OR new)
-        self.mode = tk.StringVar(value="existing" if editing else "existing")
-        ctk.CTkLabel(self, text=self.app.t("ord_customer"), font=F(12),
-                     anchor="w").pack(fill="x", padx=24)
+        # ---- guided form: one numbered section per topic, scrollable so it
+        #      never overflows on small screens / high-DPI scaling -------------
+        form = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        form.pack(side="top", fill="both", expand=True)
         db = app.db
+
+        def sec(key: str) -> None:
+            ctk.CTkLabel(form, text=app.t(key), font=F(12, "bold"), anchor="w",
+                         text_color=config.COLOR_ACCENT).pack(
+                             fill="x", padx=24, pady=(12, 2))
+
+        ctk.CTkLabel(form, text=self.app.t("edit" if editing else "ord_new"),
+                     font=F(18, "bold")).pack(pady=(8, 2))
+
+        # §1 customer: one picked from the Customers page (or quick-create)
+        sec("ord_customer")
         custs = customers_model.all_customers(db)
         self.cust_labels = {f"{c['name']} — {c['phone']}": c["id"] for c in custs}
-        self.cust_combo = ctk.CTkComboBox(self, values=list(self.cust_labels.keys()), width=420)
+        self.cust_combo = ctk.CTkComboBox(
+            form, values=list(self.cust_labels.keys()), width=420,
+            command=lambda _v: self._on_customer_pick())
         if custs:
             self.cust_combo.set(list(self.cust_labels.keys())[0])
         self.cust_combo.pack(padx=24, pady=(0, 2))
 
-        # quick new-customer name/phone
-        self.newc_frame = ctk.CTkFrame(self, fg_color=config.COLOR_BG, corner_radius=8)
+        # quick new-customer name/phone (still possible without leaving the order)
+        self.newc_frame = ctk.CTkFrame(form, fg_color=config.COLOR_BG, corner_radius=8)
         self.newc_frame.pack(fill="x", padx=24, pady=4)
         self.new_name = tk.StringVar()
         self.new_phone = tk.StringVar()
@@ -275,60 +321,95 @@ class OrderDialog(ctk.CTkToplevel):
         ctk.CTkEntry(self.newc_frame, textvariable=self.new_phone, width=180,
                      placeholder_text=app.t("phone")).grid(row=0, column=1, padx=6, pady=6)
         self.newc_frame.grid_columnconfigure((0, 1), weight=1)
-        self.risk_lbl = ctk.CTkLabel(self, text="", font=F(11, "bold"))
+        self.risk_lbl = ctk.CTkLabel(form, text="", font=F(11, "bold"))
         self.risk_lbl.pack()
         self.new_phone.trace_add("write", lambda *_: self.live_check())
         ctk.CTkButton(self.newc_frame, text=app.t("qa_btn"), width=110, height=28,
                       fg_color=config.COLOR_BG_3, hover_color=config.COLOR_BG,
                       command=self.quick_paste).grid(row=0, column=2, padx=6, pady=6)
 
-        # order fields — product picker feeds from the catalog when it exists
+        # §2 order date: today (one click) or a custom date
+        sec("ord_date")
+        drow = ctk.CTkFrame(form, fg_color="transparent")
+        drow.pack(fill="x", padx=24)
+        self.odate = tk.StringVar()
+        ctk.CTkEntry(drow, textvariable=self.odate, width=170,
+                     placeholder_text=date.today().isoformat()).pack(side="left")
+        ctk.CTkButton(drow, text=app.t("ord_date_today"), width=130, height=28,
+                      fg_color=config.COLOR_BG_3, hover_color=config.COLOR_BG,
+                      command=lambda: self.odate.set(date.today().isoformat())
+                      ).pack(side="left", padx=8)
+        ctk.CTkLabel(form, text=app.t("ord_date_hint"), font=F(10),
+                     text_color=config.COLOR_FG_DIM, anchor="w").pack(fill="x", padx=26)
+
+        # §3 product: picked from Products & Stock, price auto-filled from it
+        sec("product")
         self.product = tk.StringVar()
         self.price = tk.StringVar()
-        self.shipping = tk.StringVar(value=settings_store.get_setting(db, "default_shipping_cost", "600"))
+        self.shipping = tk.StringVar(
+            value=settings_store.get_setting(db, "default_shipping_cost", "600"))
         self.notes = tk.StringVar()
         self.deposit = tk.StringVar()
         from ..models import products as products_model
         self._catalog = products_model.all_products(db)
-        ctk.CTkLabel(self, text=app.t("product"), font=F(12), anchor="w").pack(fill="x", padx=24, pady=(6, 0))
         catalog_names = [p["name"] for p in self._catalog]
+        # NOTE: CTkComboBox takes `variable=` — `textvariable=` is NOT a
+        # supported CTk argument and makes CTk raise ValueError mid-build
+        # (the v1.0-v1.4 'empty order window' bug).
         self.product_combo = ctk.CTkComboBox(
-            self, values=catalog_names, textvariable=self.product, width=420,
+            form, values=catalog_names, variable=self.product, width=420,
             command=lambda _v: self._on_catalog_pick())
         self.product_combo.pack(padx=24)
-        prow = ctk.CTkFrame(self, fg_color="transparent")
+        prow = ctk.CTkFrame(form, fg_color="transparent")
         prow.pack(fill="x", padx=24)
         ctk.CTkLabel(prow, text=app.t("price"), font=F(12)).pack(side="left", padx=(0, 6))
-        ctk.CTkEntry(prow, textvariable=self.price, width=120).pack(side="left", padx=(0, 12))
-        ctk.CTkLabel(prow, text=app.t("shipping_cost"), font=F(12)).pack(side="left", padx=(0, 6))
-        ctk.CTkEntry(prow, textvariable=self.shipping, width=100).pack(side="left", padx=(0, 12))
+        ctk.CTkEntry(prow, textvariable=self.price, width=130).pack(side="left", padx=(0, 12))
         ctk.CTkLabel(prow, text=app.t("deposit"), font=F(12)).pack(side="left", padx=(0, 6))
-        ctk.CTkEntry(prow, textvariable=self.deposit, width=100,
+        ctk.CTkEntry(prow, textvariable=self.deposit, width=110,
                      placeholder_text="0").pack(side="left")
-        self.dep_hint = ctk.CTkLabel(self, text="", font=F(11), anchor="w",
+        self.dep_hint = ctk.CTkLabel(form, text="", font=F(11), anchor="w",
                                      text_color=config.COLOR_YELLOW)
         self.dep_hint.pack(fill="x", padx=24)
         self.deposit.trace_add("write", lambda *_: self._update_deposit_hint())
 
-        srow = ctk.CTkFrame(self, fg_color="transparent")
-        srow.pack(fill="x", padx=24, pady=(8, 0))
-        ctk.CTkLabel(srow, text=app.t("delivery_method"), font=F(12)).pack(side="left", padx=(0, 6))
-        self.delivery = ctk.CTkComboBox(srow, values=config.DELIVERY_COMPANIES, width=160)
-        self.delivery.set(settings_store.get_setting(db, "default_delivery", "Yalidine"))
-        self.delivery.pack(side="left", padx=(0, 12))
+        # §4 delivery: wilaya, company (or add a custom one), shipping cost
+        sec("ord_delivery_sec")
+        srow = ctk.CTkFrame(form, fg_color="transparent")
+        srow.pack(fill="x", padx=24)
         ctk.CTkLabel(srow, text=app.t("wilaya"), font=F(12)).pack(side="left", padx=(0, 6))
         self.wilaya = ctk.CTkComboBox(srow, values=WILAYA_NAMES_FR, width=170)
-        self.wilaya.pack(side="left")
+        self.wilaya.pack(side="left", padx=(0, 12))
         W.wheel_combo(self.wilaya, WILAYA_NAMES_FR)
+        ctk.CTkLabel(srow, text=app.t("delivery_method"), font=F(12)).pack(
+            side="left", padx=(0, 6))
+        self._companies = settings_store.delivery_companies(db)
+        self._add_company_tag = "+ " + app.t("ord_add_company")
+        self.delivery = ctk.CTkComboBox(
+            srow, values=self._companies + [self._add_company_tag],
+            width=190, command=self._on_company_pick)
+        default = settings_store.get_setting(db, "default_delivery", "Yalidine")
+        self._last_company = (default if default in self._companies
+                              else (self._companies[0] if self._companies else "Yalidine"))
+        self.delivery.set(self._last_company)
+        self.delivery.pack(side="left")
+        ship_row = ctk.CTkFrame(form, fg_color="transparent")
+        ship_row.pack(fill="x", padx=24, pady=(6, 0))
+        ctk.CTkLabel(ship_row, text=app.t("shipping_cost"), font=F(12)).pack(
+            side="left", padx=(0, 6))
+        ctk.CTkEntry(ship_row, textvariable=self.shipping, width=110).pack(side="left")
 
-        ctk.CTkLabel(self, text=app.t("status"), font=F(12), anchor="w").pack(fill="x", padx=24, pady=(8, 0))
+        # §5 status
+        sec("status")
         self.status = ctk.CTkOptionMenu(
-            self, values=[t(f"st_{s}", app.lang) for s in config.ALL_STATUSES], width=200)
+            form, values=[t(f"st_{s}", app.lang) for s in config.ALL_STATUSES],
+            width=200)
         self.status.set(t("st_pending", app.lang))
         self.status.pack(padx=24, anchor="w")
 
-        ctk.CTkLabel(self, text=app.t("notes"), font=F(12), anchor="w").pack(fill="x", padx=24, pady=(8, 0))
-        ctk.CTkEntry(self, textvariable=self.notes, width=420).pack(padx=24, pady=(0, 8))
+        # §6 notes
+        sec("notes")
+        ctk.CTkEntry(form, textvariable=self.notes, width=420).pack(
+            padx=24, pady=(0, 8))
 
         if editing:
             o = orders_model.get(db, order_id)
@@ -342,28 +423,50 @@ class OrderDialog(ctk.CTkToplevel):
             self.shipping.set(str(int(o["shipping_cost"])))
             self.deposit.set(str(int(o["deposit"])) if o["deposit"] else "")
             self.notes.set(o["notes"] or "")
-            self.delivery.set(o["delivery_method"] or "Yalidine")
+            self.odate.set(o["date"] or "")
+            if o["delivery_method"]:
+                self.delivery.set(o["delivery_method"])
+                self._last_company = o["delivery_method"]
             self.wilaya.set(o["wilaya"] or WILAYA_NAMES_FR[0])
             self.status.set(t(f"st_{o['status']}", app.lang))
-
-        btns = ctk.CTkFrame(self, fg_color="transparent")
-        btns.pack(fill="x", padx=24, pady=10)
-        ctk.CTkButton(btns, text=app.t("cancel"), fg_color="transparent",
-                      text_color=config.COLOR_FG_DIM, border_width=1,
-                      command=self.destroy).pack(side="right", padx=4)
-        ctk.CTkButton(btns, text=app.t("save"), width=120,
-                      command=self.save).pack(side="right", padx=4)
 
     # ------------------------------------------------------------------
 
     def _on_catalog_pick(self) -> None:
-        """Choosing a catalog product auto-fills its sale price."""
+        """Choosing a catalog product always fills its sale price
+        (the price set in Products & Stock) and remembers the link."""
         name = self.product.get()
         for p in self._catalog:
             if p["name"] == name:
-                if not self.price.get().strip():
-                    self.price.set(str(int(p["sale_price"])))
+                self.price.set(str(int(p["sale_price"])))
                 break
+
+    def _on_customer_pick(self, *__) -> None:
+        """Picking an existing customer pre-fills their wilaya."""
+        cid = self.cust_labels.get(self.cust_combo.get())
+        if not cid:
+            return
+        cust = customers_model.get(self.app.db, cid)
+        if cust and cust["wilaya"] in WILAYA_NAMES_FR:
+            self.wilaya.set(cust["wilaya"])
+
+    def _on_company_pick(self, _value: str = "") -> None:
+        """The '➕ add' entry opens a name prompt; typed once, remembered."""
+        current = self.delivery.get().strip()
+        if current != self._add_company_tag:
+            if current:
+                self._last_company = current
+            return
+        from .quick_add import ask_text
+        name = ask_text(self, self.app, self.app.t("ord_company_prompt"))
+        if name:
+            self._companies = settings_store.add_delivery_company(self.app.db, name)
+            self.delivery.configure(
+                values=self._companies + [self._add_company_tag])
+            self.delivery.set(name)
+            self._last_company = name
+        else:
+            self.delivery.set(self._last_company)
 
     def _update_deposit_hint(self) -> None:
         """'Remaining to collect' = price - deposit (shown live)."""
@@ -375,7 +478,7 @@ class OrderDialog(ctk.CTkToplevel):
             return
         if dep > 0 and price > dep:
             self.dep_hint.configure(
-                text="💰 " + self.app.t("dep_remaining") + " : "
+                text=self.app.t("dep_remaining") + " : "
                      + f"{price - dep:,.0f} DA".replace(",", " "))
         else:
             self.dep_hint.configure(text="")
@@ -400,10 +503,10 @@ class OrderDialog(ctk.CTkToplevel):
             return
         risk = phone_risk(self.app.db, phone)
         if risk["level"] == DANGER:
-            self.risk_lbl.configure(text="🚨 " + self.app.t("reason_blacklisted"),
+            self.risk_lbl.configure(text="• " + self.app.t("reason_blacklisted"),
                                     text_color=config.COLOR_RED)
         elif risk["level"] == CAUTION:
-            self.risk_lbl.configure(text="⚠️ " + self.app.t("scam_caution_body"),
+            self.risk_lbl.configure(text="• " + self.app.t("scam_caution_body"),
                                     text_color=config.COLOR_ORANGE)
         else:
             self.risk_lbl.configure(text="✓", text_color=config.COLOR_GREEN)
@@ -449,6 +552,16 @@ class OrderDialog(ctk.CTkToplevel):
         if dep < 0 or dep > price:
             self.app.toast(self.app.t("fill_required"), "warn")
             return
+        date_iso = orders_model.parse_date_text(self.odate.get())
+        if date_iso is None:
+            self.app.toast(self.app.t("ord_bad_date"), "warn")
+            return
+        company = self.delivery.get().strip()
+        if company and company != self._add_company_tag:
+            # a name typed directly in the box is remembered for next time
+            self._companies = settings_store.add_delivery_company(db, company)
+            self.delivery.configure(
+                values=self._companies + [self._add_company_tag])
 
         # catalog product id (when the name matches exactly)
         product_id = None
@@ -461,18 +574,20 @@ class OrderDialog(ctk.CTkToplevel):
             if self.order_id:
                 orders_model.update(db, self.order_id, product=self.product.get().strip(),
                                     price=price, status=status,
-                                    delivery_method=self.delivery.get(),
+                                    delivery_method=company,
+                                    **({"date": date_iso} if date_iso else {}),
                                     wilaya=self.wilaya.get(), shipping_cost=ship,
                                     notes=self.notes.get().strip(),
                                     product_id=product_id, deposit=dep)
             else:
                 orders_model.create(db, cid, self.product.get().strip(), price,
-                                    status=status, delivery_method=self.delivery.get(),
+                                    status=status, delivery_method=company,
+                                    order_date=date_iso,
                                     wilaya=self.wilaya.get(), shipping_cost=ship,
                                     notes=self.notes.get().strip(),
                                     product_id=product_id, deposit=dep)
             trust.refresh(db, cid)
-            self.destroy()
+            self.close()
             if self.on_saved:
                 self.on_saved()
 
@@ -480,13 +595,14 @@ class OrderDialog(ctk.CTkToplevel):
             """Save as blocked -> shipping cost counted as money saved."""
             if not self.order_id:
                 orders_model.create(db, cid, self.product.get().strip(), price,
-                                    status="blocked", delivery_method=self.delivery.get(),
+                                    status="blocked", delivery_method=company,
+                                    order_date=date_iso,
                                     wilaya=self.wilaya.get(), shipping_cost=ship,
                                     notes=self.notes.get().strip(),
                                     product_id=product_id, deposit=dep)
                 trust.refresh(db, cid)
                 self.app.toast(self.app.t("ord_blocked_saved"), "ok")
-                self.destroy()
+                self.close()
                 if self.on_saved:
                     self.on_saved()
             else:

@@ -29,7 +29,7 @@ class RelancePage(ctk.CTkFrame):
 
         top = ctk.CTkFrame(self, fg_color="transparent")
         top.grid(row=0, column=0, sticky="ew", padx=8, pady=(4, 2))
-        ctk.CTkLabel(top, text=app.t("rel_title"), font=F(22, "bold"),
+        ctk.CTkLabel(top, text=app.t("rel_title"), font=F(21, "extrabold"),
                  anchor=rtl_anchor(app)).pack(side=rtl_side(app))
 
         # threshold row
@@ -66,10 +66,10 @@ class RelancePage(ctk.CTkFrame):
 
         bar = ctk.CTkFrame(list_frame, fg_color="transparent")
         bar.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
-        ctk.CTkButton(bar, text="📢 " + app.t("rel_copy") + " (AR)", height=30,
+        ctk.CTkButton(bar, text=app.t("rel_copy_ar"), height=30,
                       command=lambda: self.copy_reminder("ar")
                       ).pack(side="left", padx=2)
-        ctk.CTkButton(bar, text="📢 " + app.t("rel_copy") + " (FR)", height=30,
+        ctk.CTkButton(bar, text=app.t("rel_copy_fr"), height=30,
                       command=lambda: self.copy_reminder("fr")
                       ).pack(side="left", padx=2)
         self.count_lbl = ctk.CTkLabel(bar, text="", font=F(11),
@@ -102,7 +102,7 @@ class RelancePage(ctk.CTkFrame):
                 f"{r['price']:,.0f}".replace(",", " "),
                 status_badge_text(r["status"], lang)), tags=(row_tag(r["status"]),))
         self.count_lbl.configure(
-            text=self.app.t("rel_none") if not rows else f"{len(rows)} 🔔")
+            text=self.app.t("rel_none") if not rows else f"• {len(rows)}")
 
     def _selected(self) -> list[dict]:
         ids = {int(i) for i in self.tree.selection()} or (

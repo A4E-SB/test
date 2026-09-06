@@ -15,10 +15,10 @@ from ..models import orders as orders_model
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
 from . import widgets as W
-from .widgets import F, center
+from .widgets import F, HimayaDialog, center, fit_geometry
 
 
-class BulkEditDialog(ctk.CTkToplevel):
+class BulkEditDialog(HimayaDialog):
     def __init__(self, master, app, order_ids: list[int], on_done=None):
         super().__init__(master)
         self.app = app
@@ -26,10 +26,9 @@ class BulkEditDialog(ctk.CTkToplevel):
         self.on_done = on_done
         self.title(app.t("me_title") + f" ({len(order_ids)})")
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("440x380")
+        fit_geometry(self, 440, 380)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=f"{app.t('me_title')} — {len(order_ids)} 📦",
                      font=F(17, "bold")).pack(pady=(14, 4))
@@ -102,6 +101,6 @@ class BulkEditDialog(ctk.CTkToplevel):
             if o:
                 trust.refresh(db, o["customer_id"])
         self.app.toast(self.app.t("ord_status_changed"), "ok")
-        self.destroy()
+        self.close()
         if self.on_done:
             self.on_done()

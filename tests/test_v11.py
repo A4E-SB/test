@@ -359,6 +359,29 @@ def test_perf_indexes(tmp: Path) -> None:
           grouped[0]["n"] == naive == 1)
 
 
+def test_profit_consistency(tmp: Path) -> None:
+    """v1.3: profit & real profit share ONE scope (paid) — real <= profit."""
+    print("[profit consistency]")
+    from himaya.services import reports as rep
+    db = make_db(tmp)
+    c = customers.create(db, "C", "0555333222")
+    pid = products.create(db, "P", cost_price=700, sale_price=1000, quantity=10)
+    # paid order: price 1000, shipping 300, product cost 700 -> profit 700, real 0
+    orders.create(db, c, "P", 1000, status="paid", shipping_cost=300,
+                  product_id=pid)
+    # delivered (NOT paid) with big shipping: must NOT drag profit down
+    orders.create(db, c, "P", 1000, status="delivered", shipping_cost=5000,
+                  product_id=pid)
+    s = rep.summary_for_range(db, "2000-01-01", "2999-12-31")
+    check("revenue counts paid only", s["revenue"] == 1000)
+    check("costs scoped to paid (delivered ignored)",
+          s["costs"] == 300, s["costs"])
+    check("profit = revenue - shipping", s["profit"] == 700, s["profit"])
+    check("real profit = profit - product costs",
+          s["real_profit"] == 0, s["real_profit"])
+    check("real profit <= profit", s["real_profit"] <= s["profit"])
+
+
 def main() -> int:
     import tempfile
     with tempfile.TemporaryDirectory() as td:
@@ -376,6 +399,7 @@ def main() -> int:
         test_demo_and_relance(tmp)
         test_order_status_buttons_cover_new_status()
         test_perf_indexes(tmp)
+        test_profit_consistency(tmp)
         import tempfile
         with tempfile.TemporaryDirectory() as td2:
             test_v1_upgrade_migration(Path(td2))

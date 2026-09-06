@@ -47,6 +47,11 @@ class Database:
         self._lock = threading.RLock()
         self.conn = sqlite3.connect(str(self.path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        # v1.7: data-change signal for the UI. Every WRITE goes through
+        # execute(), so this counter changes exactly when cached pages'
+        # data could have changed (diagnosed cause of section-switch lag:
+        # pages re-queried + re-rendered on every visit even when clean).
+        self.mutation_count = 0
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.init_schema()
 
@@ -86,6 +91,7 @@ class Database:
         with self._lock:
             cur = self.conn.execute(sql, tuple(params))
             self.conn.commit()
+            self.mutation_count += 1     # observation hook (no logic change)
             return cur
 
     def query(self, sql: str, params: Iterable[Any] = ()) -> list[sqlite3.Row]:

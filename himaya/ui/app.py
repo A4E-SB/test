@@ -10,6 +10,8 @@ search (Ctrl+K), first-launch tour and optional password lock.
 
 from __future__ import annotations
 
+import time
+
 import customtkinter as ctk
 
 from .. import config
@@ -38,18 +40,20 @@ def _enable_dnd(root) -> bool:
         return False
 
 
+# v1.7: one consistent stroke-icon family (himaya.ui.icons, Feather-style,
+# drawn with PIL — offline). The emoji stays only as a no-PIL fallback.
 PAGES = [
-    ("dashboard", "nav_dashboard", "🏠"),
-    ("customers", "nav_customers", "👥"),
-    ("orders", "nav_orders", "📦"),
-    ("products", "nav_products", "🛒"),
-    ("relance", "nav_relance", "🔔"),
-    ("detector", "nav_detector", "🔍"),
-    ("time_wasters", "nav_time_wasters", "⏳"),
-    ("reports", "nav_reports", "💰"),
-    ("transfer", "nav_transfer", "🔌"),
-    ("labels", "nav_labels", "🖨️"),
-    ("settings", "nav_settings", "⚙️"),
+    ("dashboard", "nav_dashboard", "shield", "🏠"),
+    ("customers", "nav_customers", "users", "👥"),
+    ("orders", "nav_orders", "package", "📦"),
+    ("products", "nav_products", "cart", "🛒"),
+    ("relance", "nav_relance", "bell", "🔔"),
+    ("detector", "nav_detector", "search", "🔍"),
+    ("time_wasters", "nav_time_wasters", "hourglass", "⏳"),
+    ("reports", "nav_reports", "chart", "💰"),
+    ("transfer", "nav_transfer", "swap", "🔌"),
+    ("labels", "nav_labels", "printer", "🖨️"),
+    ("settings", "nav_settings", "settings", "⚙️"),
 ]
 
 
@@ -60,6 +64,22 @@ class HimayaApp(ctk.CTk):
         super().__init__(fg_color=config.COLOR_BG)
         self.dnd_enabled = _enable_dnd(self)   # optional drag & drop
         self.db = db
+        # v1.7.12: environment facts on every diagnostics report — settles
+        # "is the index there? how big is the data? which sqlite?" from the
+        # user's own machine instead of guessing from here.
+        try:
+            from ..services import diagnostics as _diag
+            _n = db.scalar("SELECT COUNT(*) FROM customers") or 0
+            _idx = {r[1] for r in db.conn.execute(
+                "PRAGMA index_list('customers')")}
+            _sv = db.conn.execute("SELECT sqlite_version()").fetchone()[0]
+            _diag.set_report_footer(
+                f"db: customers={_n}  "
+                f"trust_idx={'yes' if 'idx_customers_trust' in _idx else 'NO'}  "
+                f"scammer_idx={'yes' if 'idx_customers_scammer' in _idx else 'NO'}",
+                f"db: sqlite={_sv}  himaya v{config.APP_VERSION}")
+        except Exception:
+            pass   # diagnostics must never break startup
         self.lang = settings_store.get_setting(db, "language", "fr")
         # typeface: Tajawal (bundled) when the UI is Arabic, Segoe UI otherwise
         # (MUST come after self.lang is set — v1.2.0 crashed here on launch)
@@ -71,8 +91,11 @@ class HimayaApp(ctk.CTk):
         self._unlocked = False                # set by the password gate
 
         self.title(t("app_title", self.lang))
-        self.geometry("1280x760")
-        self.minsize(1150, 700)
+        fitted = W.fit_geometry(self, 1280, 760, margin=60)
+        if fitted:                       # never insist on more than the screen
+            self.minsize(min(1150, fitted[0]), min(700, fitted[1]))
+        else:
+            self.minsize(1150, 700)
         try:
             ico = config.ASSETS_DIR / "icon.ico"
             if ico.exists():
@@ -165,7 +188,7 @@ class HimayaApp(ctk.CTk):
                                       0 if logo_first else 10))
         except Exception:
             pass
-        ctk.CTkLabel(brand, text="Himaya", font=F(24, "bold"),
+        ctk.CTkLabel(brand, text="Himaya", font=F(21, "extrabold"),
                      text_color=config.COLOR_ACCENT).pack(
             side="left" if logo_first else "right")
         # one translated string — never concatenate Arabic + Latin here
@@ -177,17 +200,54 @@ class HimayaApp(ctk.CTk):
                             sticky="e" if self.rtl else "w")
 
         # global search button (Ctrl+K)
+        # v1.7: the search field reads as an input now — raised surface,
+        # 1px border token, muted text (was a plain gray slab)
+        s_img = None
+        try:
+            from .icons import render as icon_render
+            s_img = ctk.CTkImage(
+                light_image=icon_render("search", config.COLOR_FG_DIM, 16),
+                size=(16, 16))
+        except Exception:
+            pass
         search_btn = ctk.CTkButton(
-            self.sidebar, text="🔍 " + t("gs_title", self.lang), anchor="c",
-            font=F(12), height=32, corner_radius=8, fg_color=config.COLOR_BG_3,
-            hover_color=config.COLOR_BG, text_color=config.COLOR_FG,
+            self.sidebar,
+            text=(t("gs_title", self.lang) if s_img
+                  else t("gs_title", self.lang)),
+            image=s_img, compound="left", anchor="c",
+            font=F(12), height=34, corner_radius=8,
+            fg_color=config.COLOR_BG_3, border_width=1,
+            border_color=config.COLOR_BORDER,
+            hover_color=config.tint(config.COLOR_ACCENT, 0.08,
+                                    base=config.COLOR_BG_3),
+            text_color=config.COLOR_FG_DIM,
             command=self.open_global_search)
         search_btn.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
 
-        for i, (key, label_key, icon) in enumerate(PAGES, start=3):
+        self._nav_icons: dict[str, dict] = {}
+        self._icon_mode = "emoji"
+        try:
+            from .icons import render as icon_render
+            for key, _lbl, iname, _emoji in PAGES:
+                self._nav_icons[key] = {
+                    "dim": ctk.CTkImage(
+                        light_image=icon_render(iname, config.COLOR_FG_DIM, 20),
+                        size=(20, 20)),
+                    "accent": ctk.CTkImage(
+                        light_image=icon_render(iname, config.COLOR_ACCENT, 20),
+                        size=(20, 20)),
+                }
+            self._icon_mode = "vector"
+        except Exception:
+            self._nav_icons = {}      # no PIL / render issue -> emoji fallback
+
+        for i, (key, label_key, iname, emoji) in enumerate(PAGES, start=3):
+            img = self._nav_icons.get(key, {}).get("dim") \
+                if self._icon_mode == "vector" else None
+            text = t(label_key, self.lang) if img else f"{emoji}  {t(label_key, self.lang)}"
             btn = ctk.CTkButton(
-                self.sidebar, text=f"{icon}  {t(label_key, self.lang)}",
-                anchor="e" if self.rtl else "w", font=F(13), height=38,
+                self.sidebar, text=text, image=img, compound="left",
+                anchor="e" if self.rtl else "w", font=F(13), height=36,
                 corner_radius=8, fg_color="transparent",
                 hover_color=config.COLOR_BG_3, text_color=config.COLOR_FG,
                 command=lambda k=key: self.show_page(k))
@@ -233,17 +293,83 @@ class HimayaApp(ctk.CTk):
                 self.page.grid_remove()
             except Exception:
                 pass   # already destroyed (e.g. right after a language switch)
-        for k, btn in self._nav_buttons.items():
+        # v1.7.1: this ran for ALL 11 buttons on EVERY switch, creating 22
+        # fresh CTkFont objects and reconfiguring 11 images — measurable
+        # micro-lag per click. Now: two SHARED fonts + only the buttons whose
+        # state actually changed (previous active <-> new active).
+        if "_nav_font_active" not in self.__dict__:   # not hasattr: stubs
+            # (permissive test stubs answer hasattr() True for anything)
+            self._nav_font_active = F(13, "semibold")
+            self._nav_font_idle = F(13)
+            self._nav_active_tint = config.tint(config.COLOR_ACCENT, 0.14,
+                                                base=config.COLOR_BG_2)
+        prev = getattr(self, "page_name", None)
+        for k in {prev, name}:
+            btn = self._nav_buttons.get(k)
+            if btn is None:
+                continue
             active = k == name
-            btn.configure(fg_color=config.COLOR_ACCENT if active else "transparent",
-                          text_color="#ffffff" if active else config.COLOR_FG)
+            btn.configure(
+                fg_color=self._nav_active_tint if active else "transparent",
+                text_color=config.COLOR_ACCENT if active else config.COLOR_FG,
+                font=self._nav_font_active if active else self._nav_font_idle,
+                image=(self._nav_icons.get(k, {}).get
+                       ("accent" if active else "dim")
+                       if self._icon_mode == "vector" else None))
+        self._last_switch_ts = time.time()     # prebuild yields to the user
         self.page_name = name
         if name not in self._pages:
-            self._pages[name] = self._page_class(name)(self.main, self)
+            from ..services import diagnostics as _dg
+            import time as _tm
+            _imp = _tm.perf_counter()
+            from ..services.diagnostics import add_timing as _at2
+            # v1.7.10: the FIRST build of each page also pays that page
+            # module's lazy import (~275ms for dashboard) — attributed
+            # separately so build:<name> reflects construction only.
+            _cls = self._page_class(name)          # imports happen here
+            _at2(f"import:{name}", (_tm.perf_counter() - _imp) * 1000)
+            with _dg.timeit(f"build:{name}"):
+                self._pages[name] = _cls(self.main, self)
+            self._mark_fresh(self._pages[name])   # __init__ already refreshed
+            # v1.7.6: adapt to the machine. A field report showed the
+            # dashboard's first build at 3650 ms — on such machines the
+            # background prebuilder (one page / 400 ms) STOMPED the UI with
+            # multi-second builds during use. If a page costs > 800 ms,
+            # switch warm-up to slow-and-truly-idle mode (2.5 s spacing,
+            # and only after 3 s without a click).
+            try:
+                _ms = _dg.timings[f"build:{name}"][-1]
+                if _ms > 800 and self.__dict__.get("_prebuild_interval", 400) == 400:
+                    self._prebuild_interval = 2500
+                    self._prebuild_yield_s = 3.0
+                    _dg.add_timing("weak-machine-mode", 1.0)
+            except Exception:
+                pass
         self.page = self._pages[name]
         self.page.grid(row=0, column=0, sticky="nsew")
-        if hasattr(self.page, "refresh"):
-            self.page.refresh()
+        # v1.7.5 (lag feedback round 3): the v1.7.2 deferral painted an
+        # EMPTY table first and streamed rows in — the pop-in READ as lag
+        # ("worse"). Now: refresh only when data changed (mutation counter,
+        # no time window -> no surprise rebuilds) and do it SYNCHRONOUSLY
+        # before the switch lands, so the page appears complete. Rows are
+        # filled in one batch (fill_tree_chunked batch=250), no streaming.
+        if self._page_stale(self.page) and hasattr(self.page, "refresh"):
+            self._mark_fresh(self.page)
+            from ..services.diagnostics import timeit
+            try:
+                with timeit(f"refresh:{name}"):
+                    self.page.refresh()
+            except Exception:
+                from ..services.diagnostics import log_crash
+                log_crash(f"refresh:{name}")
+
+    def _mark_fresh(self, page) -> None:
+        page.__dict__["_refreshed_mut"] = self.db.mutation_count
+
+    def _page_stale(self, page) -> bool:
+        # __dict__ probes: under the headless test stubs every getattr
+        # resolves to a truthy factory (never the default).
+        return page.__dict__.get("_refreshed_mut") != self.db.mutation_count
 
     def _prebuild_pages(self) -> None:
         """
@@ -253,18 +379,32 @@ class HimayaApp(ctk.CTk):
         makes EVERY first click instant; startup stays responsive because
         only one page is built per slice.
         """
-        if getattr(self, "_prebuilding_off", False):
+        # __dict__ probe, not getattr: under the headless test stubs every
+        # missing attribute resolves to a truthy factory (AnyObj.__getattr__)
+        if self.__dict__.get("_prebuilding_off"):
             return
-        remaining = [key for key, _lbl, _ico in PAGES
+        remaining = [key for key, *_rest in PAGES
                      if key not in self._pages]
         if not remaining:
             return
+        # v1.7.2/7.6: if the user interacted recently, skip this slice — a
+        # page build landing right after a click was the 'not smooth'
+        # stutter. The yield window and interval are ADAPTIVE: after any
+        # measured build > 800 ms (weak machine), warm-up goes idle-only.
+        yield_s = self.__dict__.get("_prebuild_yield_s", 0.5)
+        interval = self.__dict__.get("_prebuild_interval", 400)
+        if time.time() - self.__dict__.get("_last_switch_ts", 0.0) < yield_s:
+            self.after(max(300, int(interval / 2)), self._prebuild_pages)
+            return
+        from ..services.diagnostics import timeit as _t
         try:
-            self._pages[remaining[0]] = self._page_class(remaining[0])(
-                self.main, self)
+            with _t(f"prebuild:{remaining[0]}"):
+                page = self._page_class(remaining[0])(self.main, self)
+            self._pages[remaining[0]] = page
+            self._mark_fresh(page)          # __init__ already refreshed (v1.7)
         except Exception:
             pass   # a failed prebuild must never break the app
-        self.after(60, self._prebuild_pages)
+        self.after(interval, self._prebuild_pages)
 
     def refresh_page(self) -> None:
         if self.page is not None and hasattr(self.page, "refresh"):
@@ -346,6 +486,24 @@ class HimayaApp(ctk.CTk):
 
     def t(self, key: str, **kwargs) -> str:
         return t(key, self.lang, **kwargs)
+
+    def report_callback_exception(self, exc, val, tb) -> None:
+        """
+        Tk swallows exceptions raised inside button/command callbacks — in a
+        noconsole build they vanish completely (the v1.0-v1.4 'empty order
+        window' bug was invisible for 4 versions because of this). Log the
+        full traceback and show a short message with the log path.
+        """
+        from ..services.diagnostics import log_crash
+        log_crash("tk-callback")
+        try:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Himaya",
+                self.t("err_unexpected") + "\n\n" + str(val)[:300]
+                + "\n\n" + str(config.DATA_DIR / "error.log"))
+        except Exception:
+            pass
 
     def toast(self, message: str, kind: str = "info") -> None:
         """

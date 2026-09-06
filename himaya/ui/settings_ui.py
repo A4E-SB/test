@@ -26,7 +26,7 @@ class SettingsPage(ctk.CTkScrollableFrame):
         self.app = app
         self.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(self, text=app.t("set_title"), font=F(22, "bold"),
+        ctk.CTkLabel(self, text=app.t("set_title"), font=F(21, "extrabold"),
                      anchor=W.rtl_anchor(app)).grid(row=0, column=0, sticky="ew",
                                                   padx=16, pady=(10, 4))
 
@@ -132,6 +132,26 @@ class SettingsPage(ctk.CTkScrollableFrame):
         rel = self._card(7)
         ctk.CTkLabel(rel, text="🔔 " + app.t("nav_relance"), font=F(14, "bold"),
                      anchor="w").pack(fill="x", padx=14, pady=(10, 2))
+        # ---- performance diagnostics (v1.7.5): real numbers instead of
+        #      guessing — shows page build/refresh timings and copies a
+        #      report the seller can paste into a bug report ---------------
+        diag = self._card(8)
+        ctk.CTkLabel(diag, text="⏱️ " + app.t("set_diag_title"),
+                     font=F(12, "semibold"), anchor="w").grid(
+                         row=0, column=0, sticky="w", padx=14, pady=(10, 0))
+        ctk.CTkLabel(diag, text=app.t("set_diag_hint"), font=F(10),
+                     text_color=config.COLOR_FG_DIM, anchor="w",
+                     justify="left").grid(row=1, column=0, sticky="w",
+                                          padx=14, pady=(2, 0))
+        self.diag_lbl = ctk.CTkLabel(diag, text="", font=F(10),
+                                     text_color=config.COLOR_FG_DIM, anchor="w",
+                                     justify="left")
+        self.diag_lbl.grid(row=2, column=0, sticky="w", padx=14, pady=(4, 0))
+        ctk.CTkButton(diag, text="📋 " + app.t("set_diag_copy"), height=28,
+                      fg_color=config.COLOR_BG_3, hover_color=config.COLOR_BG,
+                      command=self.copy_diag_report).grid(
+                          row=3, column=0, sticky="w", padx=14, pady=(2, 10))
+
         rrow = ctk.CTkFrame(rel, fg_color="transparent")
         rrow.pack(fill="x", padx=14, pady=(2, 10))
         ctk.CTkLabel(rrow, text=app.t("rel_threshold"), font=F(12)).pack(
@@ -247,3 +267,13 @@ class SettingsPage(ctk.CTkScrollableFrame):
         backup.backup(self.app.db)  # safety copy of current data first
         backup.restore(path, config.DB_PATH)
         self.app.toast(self.app.t("set_restored"), "warn")
+
+    def copy_diag_report(self) -> None:
+        """Copy the performance report (Settings → Diagnostics)."""
+        from ..services import diagnostics
+        W.copy_to_clipboard(self, diagnostics.report())
+        self.app.toast(self.app.t("copied"), "ok")
+
+    def refresh(self) -> None:
+        from ..services import diagnostics
+        self.diag_lbl.configure(text=diagnostics.report())

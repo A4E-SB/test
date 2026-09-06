@@ -12,10 +12,10 @@ import customtkinter as ctk
 
 from .. import config
 from ..services import delivery_import
-from .widgets import F, center
+from .widgets import F, HimayaDialog, center, fit_geometry
 
 
-class ImportStatusesDialog(ctk.CTkToplevel):
+class ImportStatusesDialog(HimayaDialog):
     def __init__(self, master, app, on_done=None):
         super().__init__(master)
         self.app = app
@@ -23,10 +23,9 @@ class ImportStatusesDialog(ctk.CTkToplevel):
         self.updates: list[dict] = []
         self.title(app.t("dim_title"))
         self.configure(fg_color=config.COLOR_BG_2)
-        self.geometry("640x520")
+        fit_geometry(self, 640, 520)
         self.resizable(False, False)
         self.transient(master.winfo_toplevel())
-        self.grab_set()
 
         ctk.CTkLabel(self, text=app.t("dim_title"), font=F(17, "bold")).pack(pady=(14, 2))
         ctk.CTkLabel(self, text=app.t("dim_desc"), font=F(11), wraplength=580,
@@ -60,7 +59,7 @@ class ImportStatusesDialog(ctk.CTkToplevel):
         try:
             self.updates = delivery_import.parse_delivery_file(path)
         except Exception as exc:
-            self.app.toast(f"⚠️ {exc}", "err")
+            self.app.toast(f"! {exc}", "err")
             return
         self.result_lbl.configure(
             text=f"✓ {len(self.updates)} lignes — " + self.app.t("dim_apply") + " ?")
