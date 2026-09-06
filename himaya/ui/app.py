@@ -300,6 +300,7 @@ class HimayaApp(ctk.CTk):
                 image=(self._nav_icons.get(k, {}).get
                        ("accent" if active else "dim")
                        if self._icon_mode == "vector" else None))
+        self._last_switch_ts = time.time()     # prebuild yields to the user
         self.page_name = name
         if name not in self._pages:
             self._pages[name] = self._page_class(name)(self.main, self)
@@ -341,11 +342,19 @@ class HimayaApp(ctk.CTk):
         makes EVERY first click instant; startup stays responsive because
         only one page is built per slice.
         """
-        if getattr(self, "_prebuilding_off", False):
+        # __dict__ probe, not getattr: under the headless test stubs every
+        # missing attribute resolves to a truthy factory (AnyObj.__getattr__)
+        if self.__dict__.get("_prebuilding_off"):
             return
         remaining = [key for key, *_rest in PAGES
                      if key not in self._pages]
         if not remaining:
+            return
+        # v1.7.2: if the user just switched sections, skip this slice — a
+        # 100-300ms page build landing right after a click was the
+        # 'still not smooth' stutter during the first minute of use.
+        if time.time() - self.__dict__.get("_last_switch_ts", 0.0) < 0.5:
+            self.after(150, self._prebuild_pages)
             return
         try:
             page = self._page_class(remaining[0])(self.main, self)
@@ -353,7 +362,7 @@ class HimayaApp(ctk.CTk):
             self._mark_fresh(page)          # __init__ already refreshed (v1.7)
         except Exception:
             pass   # a failed prebuild must never break the app
-        self.after(60, self._prebuild_pages)
+        self.after(180, self._prebuild_pages)   # gentler pacing than 60ms
 
     def refresh_page(self) -> None:
         if self.page is not None and hasattr(self.page, "refresh"):

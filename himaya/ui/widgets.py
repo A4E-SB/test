@@ -8,6 +8,7 @@ from __future__ import annotations
 import sys
 import functools
 import tkinter as tk
+import weakref
 from tkinter import ttk
 
 import customtkinter as ctk
@@ -171,6 +172,44 @@ def make_tree(master, columns: list[tuple[str, str, int]], rid: bool = False,
 # ---------------------------------------------------------------------------
 # Stat card (dashboard)
 # ---------------------------------------------------------------------------
+
+_FILL_TOKENS = weakref.WeakKeyDictionary()
+
+
+def fill_tree_chunked(tree, rows: list, batch: int = 40, schedule=None) -> int:
+    """
+    Replace a tree's rows WITHOUT freezing the UI (v1.7.2): the first
+    `batch` rows appear immediately, the rest arrive in ~16ms idle slices,
+    so no single block exceeds a few ms (200 rows used to land in one
+    100-200ms burst right after a section switch — the residual stutter).
+    rows: [{iid, values, tags}, ...]. A newer fill on the same tree
+    cancels an in-flight one. `schedule(ms, fn)` is injectable for tests.
+    Returns the fill token (cancellation id).
+    """
+    if schedule is None:
+        schedule = tree.after
+    # token state lives OUTSIDE the widget: ttk trees are fine with extra
+    # attributes, but the headless test stubs answer getattr() for ANY
+    # name (never raising), which broke the classic token-on-widget form.
+    token = _FILL_TOKENS.get(tree, 0) + 1
+    _FILL_TOKENS[tree] = token
+    tree.delete(*tree.get_children())
+
+    def push(idx: int = 0) -> None:
+        if _FILL_TOKENS.get(tree) != token:
+            return                       # superseded by a newer fill
+        for r in rows[idx:idx + batch]:
+            if r.get("iid"):
+                tree.insert("", "end", iid=r["iid"], values=r["values"],
+                            tags=r.get("tags"))
+            else:
+                tree.insert("", "end", values=r["values"], tags=r.get("tags"))
+        if idx + batch < len(rows):
+            schedule(16, lambda: push(idx + batch))
+
+    push(0)
+    return token
+
 
 def wheel_combo(combo, values: list[str], wrap: bool = True) -> None:
     """

@@ -42,7 +42,7 @@ L'interface est entièrement trilingue **Français ⇄ Anglais ⇄ Arabe (RTL)**
 
 ## ⬇️ Télécharger l'installateur (déjà compilé)
 
-➡️ **[Himaya-Setup-1.7.1.exe — dernière version](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
+➡️ **[Himaya-Setup-1.7.2.exe — dernière version](https://github.com/belmezouarsouhil95-byte/test/releases/latest)**
 Un seul fichier (≈83 Mo) : double-cliquez, Suivant → Suivant → Terminé.
 Application + moteur Python + moteur OCR inclus, aucune connexion requise.
 
@@ -57,7 +57,7 @@ aucune connexion internet — fonctionne sur n'importe quel Windows 10/11
 L'installateur ajoute : raccourcis bureau + menu Démarrer, assistant en
 **français**, désinstalleur propre qui **demande** avant de toucher aux
 données (`%APPDATA%\Himaya`). Installation silencieuse en masse :
-`Himaya-Setup-1.7.1.exe /VERYSILENT /SUPPRESSMSGBOXES`
+`Himaya-Setup-1.7.2.exe /VERYSILENT /SUPPRESSMSGBOXES`
 
 ### Méthode A — sur votre PC Windows
 
@@ -70,13 +70,13 @@ build_installer.bat
 
 Le script fait tout : venv → dépendances → PyInstaller → récupération du moteur
 OCR (Tesseract, copié depuis votre PC ou téléchargé une fois au moment du
-build — jamais chez l'utilisateur final) → `installer\output\Himaya-Setup-1.7.1.exe`.
+build — jamais chez l'utilisateur final) → `installer\output\Himaya-Setup-1.7.2.exe`.
 
 ### Méthode B — compilé automatiquement sur GitHub (zéro PC requis)
 
 - Onglet **Actions** → *Build Windows installer* → **Run workflow** →
   téléchargez le `setup.exe` dans les *artifacts* ;
-- ou poussez un tag (`git tag v1.7.1 && git push origin v1.7.1`) : une
+- ou poussez un tag (`git tag v1.7.2 && git push origin v1.7.2`) : une
   **Release** est créée automatiquement avec l'installateur attaché.
 
 ---

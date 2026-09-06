@@ -150,14 +150,19 @@ class OrdersPage(ctk.CTkFrame):
             db, status=status, wilaya=wilaya,
             date_from=self.f_from.get().strip(), date_to=self.f_to.get().strip(),
             query=self.f_query.get(), limit=200)
-        self.tree.delete(*self.tree.get_children())
-        for o in rows:
-            self.tree.insert("", "end", iid=str(o["id"]), values=(
-                o["id"], o["date"], o["customer_name"], o["phone"], o["product"],
-                f"{o['price']:,.0f}".replace(",", " "),
-                (f"{o['deposit']:,.0f}".replace(",", " ") if o["deposit"] else "—"),
-                W.status_badge_text(o["status"], lang),
-                o["delivery_method"], o["wilaya"]), tags=(row_tag(o["status"]),))
+        # incremental fill (v1.7.2): first rows now, the rest in idle
+        # slices — a 200-row rebuild was one long blocking burst
+        W.fill_tree_chunked(self.tree, [{
+            "iid": str(o["id"]),
+            "values": (o["id"], o["date"], o["customer_name"], o["phone"],
+                       o["product"],
+                       f"{o['price']:,.0f}".replace(",", " "),
+                       (f"{o['deposit']:,.0f}".replace(",", " ")
+                        if o["deposit"] else "—"),
+                       W.status_badge_text(o["status"], lang),
+                       o["delivery_method"], o["wilaya"]),
+            "tags": (row_tag(o["status"]),),
+        } for o in rows])
         total = sum(r["price"] for r in rows)
         self.count_lbl.configure(
             text=self.app.t("ord_new_orders_count", n=len(rows)) + " • "
@@ -243,10 +248,14 @@ class OrdersPage(ctk.CTkFrame):
         BulkEditDialog(self, self.app, ids, on_done=lambda: self.refresh())
 
     def focus_order(self, oid: int) -> None:
-        """Select one order (global search jumps here)."""
-        self.tree.selection_set(str(oid))
-        self.tree.focus(str(oid))
-        self.tree.see(str(oid))
+        """Select one order (global search jumps here). The row may still
+        be arriving in an idle fill slice -> retry once shortly after."""
+        try:
+            self.tree.selection_set(str(oid))
+            self.tree.focus(str(oid))
+            self.tree.see(str(oid))
+        except tk.TclError:
+            self.after(80, lambda: self.focus_order(oid))
 
 
 class OrderDialog(HimayaDialog):

@@ -15,6 +15,7 @@ import customtkinter as ctk
 from .. import config
 from ..models import orders as orders_model
 from ..services import labels as labels_service
+from . import widgets as W
 from .widgets import (F, make_tree, row_tag, status_badge_text,
                       trust_badge_text)
 from .widgets import bind_tree_tooltips, card as surface
@@ -92,16 +93,16 @@ class LabelsPage(ctk.CTkFrame):
 
     def refresh(self) -> None:
         db, lang = self.app.db, self.app.lang
-        self.tree.delete(*self.tree.get_children())
-        for o in orders_model.list_orders(db, limit=200):
-            # v1.2: the SAME trust icon set as Customers (score-based) —
-            # previously tag-based here, score-based there
-            self.tree.insert("", "end", iid=str(o["id"]), values=(
-                o["id"], o["date"], o["customer_name"], o["phone"], o["product"],
-                f"{o['price']:,.0f}".replace(",", " "),
-                status_badge_text(o["status"], lang),
-                o["wilaya"], trust_badge_text(o["trust_score"])),
-                tags=(row_tag(o["status"]),))
+        # incremental fill (v1.7.2) — same trust icons as Customers (v1.2)
+        W.fill_tree_chunked(self.tree, [{
+            "iid": str(o["id"]),
+            "values": (o["id"], o["date"], o["customer_name"], o["phone"],
+                       o["product"],
+                       f"{o['price']:,.0f}".replace(",", " "),
+                       status_badge_text(o["status"], lang),
+                       o["wilaya"], trust_badge_text(o["trust_score"])),
+            "tags": (row_tag(o["status"]),),
+        } for o in orders_model.list_orders(db, limit=200)])
         self.update_sel()
 
     def update_sel(self) -> None:

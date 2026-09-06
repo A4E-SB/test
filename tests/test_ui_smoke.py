@@ -407,6 +407,64 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.2: chunked table fill (no long burst after a switch) -----------
+    from himaya.ui.widgets import fill_tree_chunked as _ftc
+
+    class _FakeTree:
+        def __init__(self):
+            self.rows, self.deleted = [], 0
+        def get_children(self):
+            return ()
+        def delete(self, *a):
+            self.deleted += 1
+            self.rows = []
+        def insert(self, _parent, _end, iid=None, values=None, tags=None):
+            self.rows.append((iid, values, tags))
+
+    rows = [{"iid": str(i), "values": (i,), "tags": ("good",)} for i in range(7)]
+    ft = _FakeTree()
+    _ftc(ft, rows, batch=3, schedule=lambda ms, fn: fn())   # pumped scheduler
+    assert ft.deleted == 1 and len(ft.rows) == 7, (ft.deleted, len(ft.rows))
+    assert ft.rows[0][0] == "0" and ft.rows[-1][0] == "6"
+    print("  ✓ v1.7.2: chunked fill completes when the scheduler runs")
+
+    pending = []
+    cap = lambda ms, fn: pending.append(fn)
+    fa = _FakeTree()
+    _ftc(fa, rows[:4], batch=2, schedule=cap)      # A: 2 rows now, 1 pending
+    assert len(fa.rows) == 2
+    _ftc(fa, rows[4:], batch=2, schedule=cap)      # B supersedes A
+    assert len(fa.rows) == 2                        # cleared, B's first batch
+    pending[0]()                                    # A's stale continuation
+    assert len(fa.rows) == 2, "superseded fill must not add rows"
+    pending[1]()                                    # B's continuation
+    assert len(fa.rows) == 3 and fa.rows[-1][0] == "6"   # B had 3 rows
+    print("  ✓ v1.7.2: a newer fill cancels the in-flight one")
+
+    for f in ("himaya/ui/orders.py", "himaya/ui/customers.py",
+              "himaya/ui/labels_ui.py"):
+        assert "fill_tree_chunked" in Path(f).read_text(encoding="utf-8"), f
+    _app_src = Path("himaya/ui/app.py").read_text(encoding="utf-8")
+    assert "_last_switch_ts" in _app_src and "after(180, self._prebuild_pages)" \
+        in _app_src, "prebuild must pace itself and yield on switches"
+    import time as _t
+    app._pages.pop("settings", None)                # simulate one unbuilt page
+    n_before = len(app._pages)
+    sched, _orig_after = [], app.after
+    app.after = lambda ms, fn=None: sched.append(ms)
+    try:
+        app._last_switch_ts = _t.time()             # user JUST switched
+        app._prebuild_pages()
+        assert len(app._pages) == n_before, \
+            "prebuild must yield right after a click"
+        assert sched and sched[0] == 150
+        app._last_switch_ts = _t.time() - 10        # long idle -> builds again
+        app._prebuild_pages()
+        assert len(app._pages) == n_before + 1, "idle prebuild must resume"
+    finally:
+        app.after = _orig_after
+    print("  ✓ v1.7.2: prebuild yields to fresh clicks, resumes when idle")
+
     # ---- v1.7.1: switch micro-costs + icon contracts --------------------------
     # nav highlight updates ONLY the changed buttons, with SHARED fonts
     app.show_page("orders")

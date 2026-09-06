@@ -93,13 +93,14 @@ class CustomersPage(ctk.CTkFrame):
                 tag = k
         term = self.search_var.get()
         rows = customers_model.search(db, term, tag=tag)
-        self.tree.delete(*self.tree.get_children())
-        for c in rows:
-            tags = [t(f"tag_{tg}", lang) for tg in (c["tags"] or "").split(",") if tg]
-            iid = str(c["id"])
-            self.tree.insert("", "end", iid=iid, values=(
-                c["name"], c["phone"], c["wilaya"], trust_badge_text(c["trust_score"]),
-                ", ".join(tags)), tags=(self._color_tag(c["trust_score"]),))
+        W.fill_tree_chunked(self.tree, [{
+            "iid": str(c["id"]),
+            "values": (c["name"], c["phone"], c["wilaya"],
+                       trust_badge_text(c["trust_score"]),
+                       ", ".join(t(f"tag_{tg}", lang)
+                                 for tg in (c["tags"] or "").split(",") if tg)),
+            "tags": (self._color_tag(c["trust_score"]),),
+        } for c in rows])
         self.render_detail()
 
     def _color_tag(self, score: int) -> str:
@@ -221,9 +222,13 @@ class CustomersPage(ctk.CTkFrame):
     def focus_customer(self, cid: int) -> None:
         """Select one customer (global search / quick add jump here)."""
         self.selected_id = cid
-        self.tree.selection_set(str(cid))
-        self.tree.focus(str(cid))
-        self.tree.see(str(cid))
+        try:
+            self.tree.selection_set(str(cid))
+            self.tree.focus(str(cid))
+            self.tree.see(str(cid))
+        except tk.TclError:
+            self.after(80, lambda: self.focus_customer(cid))   # row arriving
+            return
         self.render_detail()
 
     def add_customer(self) -> None:
