@@ -304,8 +304,16 @@ class HimayaApp(ctk.CTk):
         self.page_name = name
         if name not in self._pages:
             from ..services import diagnostics as _dg
+            import time as _tm
+            _imp = _tm.perf_counter()
+            from ..services.diagnostics import add_timing as _at2
+            # v1.7.10: the FIRST build of each page also pays that page
+            # module's lazy import (~275ms for dashboard) — attributed
+            # separately so build:<name> reflects construction only.
+            _cls = self._page_class(name)          # imports happen here
+            _at2(f"import:{name}", (_tm.perf_counter() - _imp) * 1000)
             with _dg.timeit(f"build:{name}"):
-                self._pages[name] = self._page_class(name)(self.main, self)
+                self._pages[name] = _cls(self.main, self)
             self._mark_fresh(self._pages[name])   # __init__ already refreshed
             # v1.7.6: adapt to the machine. A field report showed the
             # dashboard's first build at 3650 ms — on such machines the

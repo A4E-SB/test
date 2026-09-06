@@ -142,3 +142,10 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT DEFAULT ''
 );
+
+-- v1.7.10: dashboard alert lookup. The flagged-customer scan is
+-- 'tags LIKE %scammer% OR trust_score < 25' — without this index the
+-- ORDER BY trust_score LIMIT 5 branch degrades to a full table scan
+-- (measured 65-130ms on large catalogs on weak machines).
+CREATE INDEX IF NOT EXISTS idx_customers_trust
+    ON customers(trust_score);

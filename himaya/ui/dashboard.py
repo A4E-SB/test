@@ -10,6 +10,7 @@ import time as _time
 
 from .. import config
 from ..models import blacklist, orders
+from ..models import products as products_model
 from ..services.diagnostics import add_timing as _phase
 from ..services import reports
 from .widgets import (BarChart, CompactStat, F, HeroCard, make_tree,
@@ -221,10 +222,17 @@ class DashboardPage(ctk.CTkScrollableFrame):
         _at = _time.perf_counter()
         for w in self.alerts_box.winfo_children():
             w.destroy()
-        rows = db.query(
-            "SELECT name, phone, tags, trust_score FROM customers "
-            "WHERE (',' || tags || ',') LIKE '%,scammer,%' OR trust_score < 25 "
-            "ORDER BY trust_score ASC LIMIT 5")
+        # v1.7.10: split OR into two branches — the score branch now uses
+        # idx_customers_trust (index-satisfied, instant) and only the rare
+        # scammer-tag branch scans; merged + re-sorted here, same results.
+        rows = {r["phone"]: r for r in (
+            db.query("SELECT name, phone, tags, trust_score FROM customers "
+                     "WHERE trust_score < 25 "
+                     "ORDER BY trust_score ASC LIMIT 5")
+            + db.query("SELECT name, phone, tags, trust_score FROM customers "
+                       "WHERE (',' || tags || ',') LIKE '%,scammer,%' "
+                       "ORDER BY trust_score ASC LIMIT 5"))}
+        rows = sorted(rows.values(), key=lambda r: r["trust_score"])[:5]
         if not rows:
             ctk.CTkLabel(self.alerts_box, text=self.app.t("dash_no_alerts"),
                          text_color=config.COLOR_GREEN, font=F(12),
@@ -239,8 +247,9 @@ class DashboardPage(ctk.CTkScrollableFrame):
                      f"{trust_badge_text(r['trust_score'])}",
                 text_color=config.COLOR_RED, font=F(12),
                 anchor="w", justify="left").pack(anchor="w", pady=1)
+        _phase("refresh.dash.alerts", (_time.perf_counter() - _at) * 1000)
         # low-stock products (v1.1.0 catalog)
-        from ..models import products as products_model
+        _at = _time.perf_counter()
         low = products_model.low_stock_products(db)
         if low:
             ctk.CTkLabel(self.alerts_box,
@@ -253,4 +262,4 @@ class DashboardPage(ctk.CTkScrollableFrame):
                              text_color=config.COLOR_ORANGE, font=F(12),
                              anchor="w", justify="left").pack(anchor="w", pady=1)
 
-        _phase("refresh.dash.alerts", (_time.perf_counter() - _at) * 1000)
+        _phase("refresh.dash.lowstock", (_time.perf_counter() - _at) * 1000)

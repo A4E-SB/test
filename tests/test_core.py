@@ -650,6 +650,7 @@ def main() -> int:
     test_period_aware_aggregates(tmp)
     test_design_tokens()
     test_diagnostics_timings()
+    test_alert_index_on_existing_db()
     test_mutation_counter_and_icons(tmp)
     test_reports(tmp)
     test_inquiries(tmp)
@@ -671,6 +672,22 @@ def main() -> int:
         for f in FAILURES:
             print("  -", f)
     return 1 if FAIL else 0
+
+
+def test_alert_index_on_existing_db():
+    """v1.7.10: idx_customers_trust must appear even on databases created
+    before the index existed (schema.sql re-runs with IF NOT EXISTS)."""
+    import tempfile
+    from pathlib import Path
+    from himaya.database.db import Database
+    tmp = Path(tempfile.mkdtemp()) / "idx.db"
+    db = Database(tmp)
+    db.conn.execute("DROP INDEX idx_customers_trust")
+    db.conn.commit(); db.conn.close()
+    db2 = Database(tmp)
+    names = [r[1] for r in db2.conn.execute("PRAGMA index_list('customers')")]
+    assert "idx_customers_trust" in names, names
+    print("  ✓ alert index retrofits existing databases")
 
 
 if __name__ == "__main__":

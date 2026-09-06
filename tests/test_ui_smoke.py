@@ -407,6 +407,16 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.10: alerts split into two timed parts; import attributed -------
+    _dash2 = Path("himaya/ui/dashboard.py").read_text(encoding="utf-8")
+    assert "refresh.dash.lowstock" in _dash2, "low-stock part has its own mark"
+    assert _dash2.count("from ..models import products") == 1, \
+        "products import must live at module top, not inside refresh()"
+    assert "WHERE trust_score < 25" in _dash2, "alert score branch index-eligible"
+    _app_src = Path("himaya/ui/app.py").read_text(encoding="utf-8")
+    assert "import:{name}" in _app_src, "page-module import cost attributed"
+    print("  ✓ v1.7.10: alert sub-marks; page-import cost attributed")
+
     # ---- v1.7.9: canvas-free alerts; templates are labels --------------------
     _dash = Path("himaya/ui/dashboard.py").read_text(encoding="utf-8")
     assert "row_f = ctk.CTkFrame(self.alerts_box" not in _dash, \
