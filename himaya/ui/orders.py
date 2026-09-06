@@ -122,7 +122,7 @@ class OrdersPage(ctk.CTkFrame):
             color = config.STATUS_COLORS.get(st_name, config.COLOR_BG_3)
             # v1.6: tinted pill chips (semantic tint bg + semantic text),
             # fully rounded, one consistent system with table row tints
-            btn = ctk.CTkButton(chips, text=f"●  {t(f'st_{st_name}', app.lang)}",
+            btn = ctk.CTkButton(chips, text=f"•  {t(f'st_{st_name}', app.lang)}",
                                 height=26, width=92, corner_radius=13,
                                 fg_color=config.tint(color, 0.13,
                                                      base=config.COLOR_BG_2),
@@ -503,10 +503,10 @@ class OrderDialog(HimayaDialog):
             return
         risk = phone_risk(self.app.db, phone)
         if risk["level"] == DANGER:
-            self.risk_lbl.configure(text="● " + self.app.t("reason_blacklisted"),
+            self.risk_lbl.configure(text="• " + self.app.t("reason_blacklisted"),
                                     text_color=config.COLOR_RED)
         elif risk["level"] == CAUTION:
-            self.risk_lbl.configure(text="● " + self.app.t("scam_caution_body"),
+            self.risk_lbl.configure(text="• " + self.app.t("scam_caution_body"),
                                     text_color=config.COLOR_ORANGE)
         else:
             self.risk_lbl.configure(text="✓", text_color=config.COLOR_GREEN)

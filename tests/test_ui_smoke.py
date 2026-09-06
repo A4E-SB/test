@@ -333,7 +333,8 @@ def main() -> int:
     assert w.row_tag("paid") == "row_paid" and w.row_tag("ghosted") == "row_ghosted"
     assert w.row_tag("weird") in ("danger", "caution", "good", "dim", "")
     assert w._blend("#000000", "#ffffff", 0.5) == "#808080"
-    assert w.status_badge_text("paid", "fr").startswith("\u25cf")
+    assert w.status_badge_text("paid", "fr").startswith("\u2022"), \
+    "status dot must be • (verified in both UI fonts; ● is not in Tajawal)"
     assert (w.trust_glyph(90)[0] == "\u2713" and w.trust_glyph(50)[0] == "\u26a0"
             and w.trust_glyph(10)[0] == "\U0001f512")
     # every status must have its tinted row tag configured by make_tree
@@ -410,14 +411,14 @@ def main() -> int:
     # ---- v1.7.13: no astral emoji on refresh-path pages -----------------------
     # Deep-plane emoji are absent from the UI font: every render forces the
     # Windows font-fallback hunt (~33ms/label on weak machines — the 200ms
-    # alerts mystery). Refresh-path pages must use in-font glyphs (● ✓) only.
+    # alerts mystery). Refresh-path pages must use in-font glyphs (• ASCII) only.
     import re as _re3
-    _astral = _re3.compile(r'[\U0001F000-\U0001FAFF]')
+    _astral = _re3.compile(r'[\U0001F000-\U0001FAFF\u25CF]')
     for _f in ("dashboard.py", "customers.py", "orders.py", "relance.py",
                "detector_ui.py", "delivery_import_ui.py"):
         _src = Path("himaya/ui", _f).read_text(encoding="utf-8")
         assert not _astral.search(_src), f"astral emoji crept back into {_f}"
-    print("  ✓ v1.7.13: refresh-path pages free of font-fallback emoji")
+    print("  ✓ v1.7.13+14: refresh-path pages free of font-fallback glyphs")
 
     # ---- v1.7.11: flat template cards; partial scammer index ------------------
     _tw2 = Path("himaya/ui/time_wasters.py").read_text(encoding="utf-8")
@@ -703,8 +704,8 @@ def main() -> int:
     cs = CompactStat(app, "Revenue", value="9 000 DA", sub="deposits: 1 000")
     cs.set("9 500 DA")            # StatCard.set contract works
     bars = HBarChart(app)
-    bars.set_data([("●  Ghosted  ×3", 1200, "#e74c3c"),
-                   ("●  Refused  ×1", 400, "#e67e22"),
+    bars.set_data([("•  Ghosted  ×3", 1200, "#e74c3c"),
+                   ("•  Refused  ×1", 400, "#e67e22"),
                    ("zero", 0, "#fff")])   # zeros skipped
     assert len(bars._rows) == 2, len(bars._rows)
     bars.set_data([])             # empty data clears

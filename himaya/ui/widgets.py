@@ -315,7 +315,7 @@ class StatCard(ctk.CTkFrame):
 # ---------------------------------------------------------------------------
 # Unified STATUS badge system (v1.2): ONE component everywhere a status
 # appears. Widget contexts use StatusPill; table cells (ttk.Treeview cannot
-# host widgets) use the same token source rendered as "●  Label" text.
+# host widgets) use the same token source rendered as "•  Label" text (U+2022 is verified in both UI fonts; U+25CF is not in Tajawal).
 # ---------------------------------------------------------------------------
 
 TAG_COLORS = config.TAG_COLORS
@@ -324,7 +324,7 @@ STATUS_COLORS = config.STATUS_COLORS
 
 def status_badge_text(status: str, lang: str) -> str:
     """Status for a TABLE cell: colored-dot form of the same badge."""
-    return f"●  {t(f'st_{status}', lang)}"
+    return f"•  {t(f'st_{status}', lang)}"
 
 
 class TagPill(ctk.CTkLabel):

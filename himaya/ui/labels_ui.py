@@ -110,7 +110,7 @@ class LabelsPage(ctk.CTkFrame):
         self.sel_lbl.configure(text=self.app.t("lb_selected", n=n))
 
     def select_confirmed(self) -> None:
-        # the status cell holds the badge text ("●  Label") — compare to that
+        # the status cell holds the badge text ("•  Label") — compare to that
         badge = status_badge_text("confirmed", self.app.lang)
         self.tree.selection_set([iid for iid in self.tree.get_children()
                                  if self.tree.set(iid, "status") == badge])

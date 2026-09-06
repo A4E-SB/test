@@ -82,7 +82,7 @@ class CustomersPage(ctk.CTkFrame):
         self.detail.grid_columnconfigure(0, weight=1)
         self.detail.grid_rowconfigure(2, weight=1)      # history row grows
 
-        self.det_empty = EmptyState(self.detail, "●",
+        self.det_empty = EmptyState(self.detail, "•",
                                     app.t("es_customers"),
                                     app.t("es_customers_hint"))
 
@@ -399,10 +399,10 @@ class CustomerDialog(HimayaDialog):
             return
         risk = phone_risk(self.app.db, phone)
         if risk["level"] == DANGER:
-            self.risk_lbl.configure(text="● " + self.app.t("reason_blacklisted"),
+            self.risk_lbl.configure(text="• " + self.app.t("reason_blacklisted"),
                                     text_color=config.COLOR_RED)
         elif risk["level"] == CAUTION:
-            self.risk_lbl.configure(text="● " + self.app.t("scam_caution_body"),
+            self.risk_lbl.configure(text="• " + self.app.t("scam_caution_body"),
                                     text_color=config.COLOR_ORANGE)
         else:
             self.risk_lbl.configure(text="✓", text_color=config.COLOR_GREEN)

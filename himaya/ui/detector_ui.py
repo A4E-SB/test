@@ -58,7 +58,7 @@ class DetectorPage(ctk.CTkFrame):
         self.result.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 16))
         self.result.grid_columnconfigure(0, weight=1)
         from .widgets import EmptyState
-        EmptyState(self.result, "●", app.t("es_detector"),
+        EmptyState(self.result, "•", app.t("es_detector"),
                    app.t("es_detector_hint")).pack(expand=True, pady=30)
 
         # actions bar
@@ -172,7 +172,7 @@ class DetectorPage(ctk.CTkFrame):
         # learning: the seller's verdict tunes the local reason weights
         fb = ctk.CTkFrame(self.result, fg_color="transparent")
         fb.pack(fill="x", padx=12, pady=(10, 2))
-        ctk.CTkLabel(fb, text="●", font=F(13)).pack(side="left", padx=(0, 6))
+        ctk.CTkLabel(fb, text="•", font=F(13)).pack(side="left", padx=(0, 6))
         ctk.CTkButton(fb, text=self.app.t("det_fb_real"), height=28,
                       fg_color=config.COLOR_GREEN, hover_color="#27ae60",
                       command=lambda: self.give_feedback("real")

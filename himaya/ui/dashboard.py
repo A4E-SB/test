@@ -15,7 +15,7 @@ from ..services.diagnostics import add_timing as _phase
 from ..services import reports
 from .widgets import (BarChart, CompactStat, F, HeroCard, make_tree,
                       row_tag, section_header, status_badge_text,
-                      trust_badge_text)
+)
 from .widgets import card as surface
 
 
@@ -244,10 +244,15 @@ class DashboardPage(ctk.CTkScrollableFrame):
             # v1.7.9: ONE label per row. Even a "transparent" CTkFrame is
             # canvas-backed (~80ms each on the reported machine) — the
             # v1.7.8 rows still cost 452ms. Zero frames now.
+            # v1.7.14: only glyphs VERIFIED in both UI fonts (• — ASCII).
+            # U+25CF is absent from Tajawal; trust_badge_text embeds the
+#             # lock/triangle/check glyphs which
+            # also fall back — each fallback costs ~33ms/label on weak
+            # machines. The colored text carries the severity here.
             ctk.CTkLabel(
                 self.alerts_box,
-                text=f"● {r['name']} — {r['phone']}  •  "
-                     f"{trust_badge_text(r['trust_score'])}",
+                text=f"{r['name']} — {r['phone']}  •  "
+                     f"{int(r['trust_score'])}/100",
                 text_color=config.COLOR_RED, font=F(12),
                 anchor="w", justify="left").pack(anchor="w", pady=1)
         _phase("refresh.dash.alerts", (_time.perf_counter() - _at) * 1000)
@@ -256,7 +261,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
         low = products_model.low_stock_products(db)
         if low:
             ctk.CTkLabel(self.alerts_box,
-                         text=f"● {self.app.t('dash_low_stock')} :",
+                         text=f"• {self.app.t('dash_low_stock')} :",
                          text_color=config.COLOR_ORANGE, font=F(12, "bold"),
                          anchor="w", justify="left").pack(anchor="w", pady=(8, 0))
             for p in low[:4]:

@@ -652,6 +652,7 @@ def main() -> int:
     test_diagnostics_timings()
     test_alert_index_on_existing_db()
     test_report_footer()
+    test_font_glyph_coverage()
     test_mutation_counter_and_icons(tmp)
     test_reports(tmp)
     test_inquiries(tmp)
@@ -708,6 +709,64 @@ def test_report_footer():
     rep = diagnostics.report()
     check("footer in report", "db: customers=42  scammer_idx=yes" in rep)
     check("timings still present", "footer_probe" in rep)
+
+
+def test_font_glyph_coverage():
+    """v1.7.14: refresh-path glyphs must exist in the bundled Arabic font.
+    Parsed straight from the TTF cmap: • — » are the whitelist the UI
+    relies on (Segoe UI covers them natively in Latin mode). A symbol
+    outside the font triggers Tk's per-label font-fallback hunt, which
+    measured ~33ms/label on weak machines."""
+    import struct
+    from himaya import config
+    want = {"•": 0x2022, "—": 0x2014, "»": 0xBB, "A": 0x41, "0": 0x30}
+    for name in ("Tajawal-Regular.ttf", "Tajawal-Bold.ttf"):
+        data = (config.ASSETS_DIR / "fonts" / name).read_bytes()
+        n = struct.unpack(">H", data[4:6])[0]
+        cmap = next(struct.unpack(">4sIII", data[12+16*i:28+16*i])[2]
+                    for i in range(n)
+                    if data[12+16*i:16+16*i] == b"cmap")
+        nt = struct.unpack(">H", data[cmap+2:cmap+4])[0]
+        subs = [cmap + struct.unpack(">I", data[cmap+8+8*i:cmap+12+8*i])[0]
+                for i in range(nt)]
+        codes = set()
+        for sub in subs:
+            fmt = struct.unpack(">H", data[sub:sub+2])[0]
+            if fmt == 4:
+                segX2 = struct.unpack(">H", data[sub+6:sub+8])[0]
+                seg = segX2 // 2
+                ends = struct.unpack(f">{seg}H", data[sub+14:sub+14+segX2])
+                starts = struct.unpack(f">{seg}H",
+                                       data[sub+16+segX2:sub+16+2*segX2])
+                deltas = struct.unpack(f">{seg}h",
+                                       data[sub+16+2*segX2:sub+16+3*segX2])
+                rngs_off = sub + 16 + 3 * segX2
+                rngs = struct.unpack(f">{seg}H", data[rngs_off:rngs_off+segX2])
+                for s_, e_, d_, r_ in zip(starts, ends, deltas, rngs):
+                    if e_ - s_ > 500:
+                        e_ = s_ + 500    # cmap sanity cap (never hit by want)
+                    for c in range(s_, e_ + 1):
+                        if r_ == 0:
+                            codes.add(c)
+                        else:
+                            gi = struct.unpack(
+                                ">H",
+                                data[rngs_off+r_+2*(c-s_):
+                                     rngs_off+r_+2*(c-s_)+2])[0]
+                            if gi:
+                                codes.add(c)
+            elif fmt == 12:
+                ng = struct.unpack(">I", data[sub+12:sub+16])[0]
+                for i in range(ng):
+                    s_, e_, _ = struct.unpack(
+                        ">III", data[sub+16+12*i:sub+28+12*i])
+                    codes.update(range(s_, min(e_, s_+30000)+1))
+        missing = [ch for ch, cp in want.items() if cp not in codes]
+        check(f"{name} covers UI whitelist", not missing,
+              "missing: " + ",".join(missing))
+        check(f"{name} lacks fallback traps (as expected)",
+              all(cp not in codes for cp in (0x25CF, 0x2713, 0x1F512)),
+              "coverage changed — re-audit refresh-path glyphs")
 
 
 if __name__ == "__main__":
