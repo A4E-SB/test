@@ -110,7 +110,7 @@ class OrdersPage(ctk.CTkFrame):
         self.count_lbl.pack(side="right")
         ctk.CTkButton(right, text=self.app.t("edit"), height=26, width=70,
                       command=self.edit_order).pack(side="right", padx=4)
-        ctk.CTkButton(right, text="🖨️", height=26, width=44,
+        ctk.CTkButton(right, text="PDF", height=26, width=48,
                       fg_color=config.COLOR_BG_3,
                       command=self.print_labels).pack(side="right", padx=2)
 
@@ -335,7 +335,7 @@ class OrderDialog(HimayaDialog):
         self.odate = tk.StringVar()
         ctk.CTkEntry(drow, textvariable=self.odate, width=170,
                      placeholder_text=date.today().isoformat()).pack(side="left")
-        ctk.CTkButton(drow, text="📅 " + app.t("ord_date_today"), width=130, height=28,
+        ctk.CTkButton(drow, text=app.t("ord_date_today"), width=130, height=28,
                       fg_color=config.COLOR_BG_3, hover_color=config.COLOR_BG,
                       command=lambda: self.odate.set(date.today().isoformat())
                       ).pack(side="left", padx=8)
@@ -383,7 +383,7 @@ class OrderDialog(HimayaDialog):
         ctk.CTkLabel(srow, text=app.t("delivery_method"), font=F(12)).pack(
             side="left", padx=(0, 6))
         self._companies = settings_store.delivery_companies(db)
-        self._add_company_tag = "➕ " + app.t("ord_add_company")
+        self._add_company_tag = "+ " + app.t("ord_add_company")
         self.delivery = ctk.CTkComboBox(
             srow, values=self._companies + [self._add_company_tag],
             width=190, command=self._on_company_pick)
@@ -478,7 +478,7 @@ class OrderDialog(HimayaDialog):
             return
         if dep > 0 and price > dep:
             self.dep_hint.configure(
-                text="💰 " + self.app.t("dep_remaining") + " : "
+                text=self.app.t("dep_remaining") + " : "
                      + f"{price - dep:,.0f} DA".replace(",", " "))
         else:
             self.dep_hint.configure(text="")
@@ -503,10 +503,10 @@ class OrderDialog(HimayaDialog):
             return
         risk = phone_risk(self.app.db, phone)
         if risk["level"] == DANGER:
-            self.risk_lbl.configure(text="🚨 " + self.app.t("reason_blacklisted"),
+            self.risk_lbl.configure(text="● " + self.app.t("reason_blacklisted"),
                                     text_color=config.COLOR_RED)
         elif risk["level"] == CAUTION:
-            self.risk_lbl.configure(text="⚠️ " + self.app.t("scam_caution_body"),
+            self.risk_lbl.configure(text="● " + self.app.t("scam_caution_body"),
                                     text_color=config.COLOR_ORANGE)
         else:
             self.risk_lbl.configure(text="✓", text_color=config.COLOR_GREEN)

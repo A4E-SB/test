@@ -213,7 +213,7 @@ class HimayaApp(ctk.CTk):
         search_btn = ctk.CTkButton(
             self.sidebar,
             text=(t("gs_title", self.lang) if s_img
-                  else "🔍 " + t("gs_title", self.lang)),
+                  else t("gs_title", self.lang)),
             image=s_img, compound="left", anchor="c",
             font=F(12), height=34, corner_radius=8,
             fg_color=config.COLOR_BG_3, border_width=1,

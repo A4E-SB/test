@@ -102,7 +102,7 @@ class RelancePage(ctk.CTkFrame):
                 f"{r['price']:,.0f}".replace(",", " "),
                 status_badge_text(r["status"], lang)), tags=(row_tag(r["status"]),))
         self.count_lbl.configure(
-            text=self.app.t("rel_none") if not rows else f"{len(rows)} 🔔")
+            text=self.app.t("rel_none") if not rows else f"● {len(rows)}")
 
     def _selected(self) -> list[dict]:
         ids = {int(i) for i in self.tree.selection()} or (

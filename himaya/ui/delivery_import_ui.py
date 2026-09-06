@@ -59,7 +59,7 @@ class ImportStatusesDialog(HimayaDialog):
         try:
             self.updates = delivery_import.parse_delivery_file(path)
         except Exception as exc:
-            self.app.toast(f"⚠️ {exc}", "err")
+            self.app.toast(f"! {exc}", "err")
             return
         self.result_lbl.configure(
             text=f"✓ {len(self.updates)} lignes — " + self.app.t("dim_apply") + " ?")

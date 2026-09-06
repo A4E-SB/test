@@ -114,7 +114,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
         self.alerts = surface(self)
         self.alerts.grid(row=6, column=3, sticky="nsew", padx=6, pady=(10, 4))
         self.alerts.grid_columnconfigure((0, 1), weight=1)
-        ctk.CTkLabel(self.alerts, text=f"⚠️ {app.t('dash_alerts')}", font=F(14, "bold"),
+        ctk.CTkLabel(self.alerts, text=app.t("dash_alerts"), font=F(14, "bold"),
                      anchor="w").grid(row=0, column=0, columnspan=2,
                                       sticky="ew", padx=14, pady=(10, 4))
         self.chip_customers = CompactStat(self.alerts, app.t("dash_customers"),
@@ -246,7 +246,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
             # v1.7.8 rows still cost 452ms. Zero frames now.
             ctk.CTkLabel(
                 self.alerts_box,
-                text=f"🚨 {r['name']} — {r['phone']}  •  "
+                text=f"● {r['name']} — {r['phone']}  •  "
                      f"{trust_badge_text(r['trust_score'])}",
                 text_color=config.COLOR_RED, font=F(12),
                 anchor="w", justify="left").pack(anchor="w", pady=1)
@@ -256,7 +256,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
         low = products_model.low_stock_products(db)
         if low:
             ctk.CTkLabel(self.alerts_box,
-                         text=f"📦 {self.app.t('dash_low_stock')} :",
+                         text=f"● {self.app.t('dash_low_stock')} :",
                          text_color=config.COLOR_ORANGE, font=F(12, "bold"),
                          anchor="w", justify="left").pack(anchor="w", pady=(8, 0))
             for p in low[:4]:

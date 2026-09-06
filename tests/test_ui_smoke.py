@@ -407,6 +407,18 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.13: no astral emoji on refresh-path pages -----------------------
+    # Deep-plane emoji are absent from the UI font: every render forces the
+    # Windows font-fallback hunt (~33ms/label on weak machines — the 200ms
+    # alerts mystery). Refresh-path pages must use in-font glyphs (● ✓) only.
+    import re as _re3
+    _astral = _re3.compile(r'[\U0001F000-\U0001FAFF]')
+    for _f in ("dashboard.py", "customers.py", "orders.py", "relance.py",
+               "detector_ui.py", "delivery_import_ui.py"):
+        _src = Path("himaya/ui", _f).read_text(encoding="utf-8")
+        assert not _astral.search(_src), f"astral emoji crept back into {_f}"
+    print("  ✓ v1.7.13: refresh-path pages free of font-fallback emoji")
+
     # ---- v1.7.11: flat template cards; partial scammer index ------------------
     _tw2 = Path("himaya/ui/time_wasters.py").read_text(encoding="utf-8")
     assert "foot = ctk.CTkFrame" not in _tw2 and "ctk.CTkButton(foot" not in _tw2, \
