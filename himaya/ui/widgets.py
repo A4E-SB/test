@@ -667,13 +667,20 @@ class CompactStat(ctk.CTkFrame):
         self._on_click = on_click
         col = 0
         if icon:
-            # small icon in a colored circular chip (tinted bg, semantic fg)
+            # small VECTOR icon in a colored circular chip (tinted bg,
+            # semantic fg) — exact centering, one icon family everywhere
             chip = ctk.CTkFrame(self, fg_color=config.tint(color), width=32,
                                 height=32, corner_radius=16)
             chip.grid(row=0, column=0, rowspan=3, padx=(10, 0), pady=10)
             chip.grid_propagate(False)
-            ctk.CTkLabel(chip, text=icon, font=F(14)).place(
-                relx=0.5, rely=0.5, anchor="center")
+            try:
+                from .icons import render as _icon_render
+                img = ctk.CTkImage(light_image=_icon_render(icon, color, 18),
+                                   size=(18, 18))
+                ctk.CTkLabel(chip, text="", image=img).place(
+                    relx=0.5, rely=0.5, anchor="center")
+            except Exception:
+                pass
             col = 1
         self.grid_columnconfigure(col + 1, weight=1)
         self.title_lbl = ctk.CTkLabel(self, text=title, font=F(11),
@@ -706,18 +713,27 @@ class HeroCard(ctk.CTkFrame):
     31px extrabold value, muted support line — full-width band."""
 
     def __init__(self, master, title: str, color: str = config.COLOR_ACCENT,
-                 icon: str = "\U0001F6E1\uFE0F", on_click=None):
+                 icon: str = "shield", on_click=None):
         super().__init__(master, fg_color=config.COLOR_CARD, corner_radius=12,
                          border_width=1, border_color=config.COLOR_BORDER)
         self._on_click = on_click
         self.grid_columnconfigure(2, weight=1)
-        # soft tinted circular badge (never a solid semantic fill)
+        # soft tinted circular badge (never a solid semantic fill) holding
+        # the VECTOR icon — v1.7.1: the emoji version sat off-center (emoji
+        # font metrics); a CTkImage centers exactly.
         badge = ctk.CTkFrame(self, fg_color=config.tint(color), width=54,
                              height=54, corner_radius=27)
         badge.grid(row=0, column=0, rowspan=3, padx=(16, 0), pady=16)
         badge.grid_propagate(False)
-        ctk.CTkLabel(badge, text=icon, font=F(24)).place(relx=0.5, rely=0.5,
-                                                         anchor="center")
+        try:
+            from .icons import render as _icon_render
+            img = ctk.CTkImage(light_image=_icon_render(icon, color, 28),
+                               size=(28, 28))
+            ctk.CTkLabel(badge, text="", image=img).place(
+                relx=0.5, rely=0.5, anchor="center")
+        except Exception:
+            ctk.CTkLabel(badge, text="\U0001F6E1\uFE0F", font=F(22)).place(
+                relx=0.5, rely=0.5, anchor="center")
         self.title_lbl = ctk.CTkLabel(self, text=title, font=F(12),
                                       text_color=config.COLOR_FG_DIM, anchor="w")
         self.title_lbl.grid(row=0, column=2, sticky="w", padx=(14, 16), pady=(14, 0))

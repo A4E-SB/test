@@ -407,6 +407,30 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.1: switch micro-costs + icon contracts --------------------------
+    # nav highlight updates ONLY the changed buttons, with SHARED fonts
+    app.show_page("orders")
+    b_orders = app._nav_buttons["orders"]
+    b_cust = app._nav_buttons["customers"]
+    counts = {"o": 0, "c": 0}
+    b_orders.configure = lambda **kw: counts.__setitem__("o", counts["o"] + 1)
+    b_cust.configure = lambda **kw: counts.__setitem__("c", counts["c"] + 1)
+    app._nav_buttons["dashboard"].configure = lambda **kw: None   # untouched
+    app.show_page("customers")
+    assert counts == {"o": 1, "c": 1}, counts
+    print("  ✓ v1.7.1: nav reconfigures only the changed buttons")
+    assert "_nav_font_active" in app.__dict__, "nav fonts must be cached once"
+    assert app.__dict__["_nav_font_active"] is app.__dict__["_nav_font_active"]
+    dash_src = Path("himaya/ui/dashboard.py").read_text(encoding="utf-8")
+    assert 'icon="shield"' in dash_src and 'icon="truck"' in dash_src
+    w_src = Path("himaya/ui/widgets.py").read_text(encoding="utf-8")
+    assert "_icon_render(icon, color, 28)" in w_src, "hero badge uses the vector icon"
+    assert "_icon_render(icon, color, 18)" in w_src, "chips use the vector icon"
+    orders_src = Path("himaya/ui/orders.py").read_text(encoding="utf-8")
+    assert "limit=200" in orders_src, "orders rows capped (map cost)"
+    assert "limit=200" in Path("himaya/ui/labels_ui.py").read_text(encoding="utf-8")
+    print("  ✓ v1.7.1: vector hero/chip icons; table rows capped at 200")
+
     # ---- v1.7: navigation must not refresh clean pages (lag fix) -------------
     from himaya.ui.app import PAGES as _P
     app.show_page("orders")

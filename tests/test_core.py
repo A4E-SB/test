@@ -165,13 +165,23 @@ def test_mutation_counter_and_icons(tmp: Path) -> None:
     check("writes bump mutations", db.mutation_count == before + 1)
 
     from himaya.ui.icons import render, ICONS
-    check("12 icons in the set", len(ICONS) == 12)
+    check("15 icons in the set (v1.7.1: +truck/check/ghost)",
+          len(ICONS) == 15)
     for n in ICONS:
         im = render(n, "#2FD98A", 20)
         check(f"icon {n} renders 20x20 RGBA",
               im.size == (20, 20) and im.mode == "RGBA")
-        check(f"icon {n} is not empty",
-              im.getchannel("A").getextrema()[1] > 0)
+        # v1.7.1 regression guard: icons once rendered squished into the
+        # top-left quarter (unscaled coords on the supersampled canvas).
+        # At size 96 the ink bbox must be centered and span the grid.
+        big = render(n, "#2FD98A", 96)
+        bbox = big.getchannel("A").getbbox()
+        ok = bool(bbox)
+        if ok:
+            x0, y0, x1, y1 = bbox
+            cx, cy, span = (x0 + x1) / 2, (y0 + y1) / 2, max(x1 - x0, y1 - y0)
+            ok = 36 <= cx <= 60 and 36 <= cy <= 60 and span >= 55
+        check(f"icon {n} centered & full-size (k-scaling)", ok)
     a = render("shield", "#2FD98A").tobytes()
     b = render("shield", "#F2555A").tobytes()
     check("icons are color-parameterized", a != b)

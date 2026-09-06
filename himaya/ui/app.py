@@ -277,16 +277,26 @@ class HimayaApp(ctk.CTk):
                 self.page.grid_remove()
             except Exception:
                 pass   # already destroyed (e.g. right after a language switch)
-        for k, btn in self._nav_buttons.items():
+        # v1.7.1: this ran for ALL 11 buttons on EVERY switch, creating 22
+        # fresh CTkFont objects and reconfiguring 11 images — measurable
+        # micro-lag per click. Now: two SHARED fonts + only the buttons whose
+        # state actually changed (previous active <-> new active).
+        if "_nav_font_active" not in self.__dict__:   # not hasattr: stubs
+            # (permissive test stubs answer hasattr() True for anything)
+            self._nav_font_active = F(13, "semibold")
+            self._nav_font_idle = F(13)
+            self._nav_active_tint = config.tint(config.COLOR_ACCENT, 0.14,
+                                                base=config.COLOR_BG_2)
+        prev = getattr(self, "page_name", None)
+        for k in {prev, name}:
+            btn = self._nav_buttons.get(k)
+            if btn is None:
+                continue
             active = k == name
-            # v1.6: active = soft accent-tinted background + accent text
-            # (semibold via the active font), inactive stays transparent
             btn.configure(
-                fg_color=config.tint(config.COLOR_ACCENT, 0.14,
-                                     base=config.COLOR_BG_2) if active
-                else "transparent",
+                fg_color=self._nav_active_tint if active else "transparent",
                 text_color=config.COLOR_ACCENT if active else config.COLOR_FG,
-                font=F(13, "semibold") if active else F(13),
+                font=self._nav_font_active if active else self._nav_font_idle,
                 image=(self._nav_icons.get(k, {}).get
                        ("accent" if active else "dim")
                        if self._icon_mode == "vector" else None))

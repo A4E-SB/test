@@ -93,7 +93,7 @@ class LabelsPage(ctk.CTkFrame):
     def refresh(self) -> None:
         db, lang = self.app.db, self.app.lang
         self.tree.delete(*self.tree.get_children())
-        for o in orders_model.list_orders(db, limit=300):
+        for o in orders_model.list_orders(db, limit=200):
             # v1.2: the SAME trust icon set as Customers (score-based) —
             # previously tag-based here, score-based there
             self.tree.insert("", "end", iid=str(o["id"]), values=(

@@ -46,7 +46,7 @@ class DashboardPage(ctk.CTkScrollableFrame):
 
         # hero: money protected from scammers this period
         self.hero = HeroCard(self, app.t("dash_money_saved"),
-                             color=config.COLOR_ACCENT, icon="\U0001F6E1\uFE0F",
+                             color=config.COLOR_ACCENT, icon="shield",
                              on_click=lambda: self._goto_orders("blocked"))
         self.hero.grid(row=1, column=0, columnspan=4, sticky="ew",
                        padx=8, pady=(4, 2))
@@ -56,16 +56,16 @@ class DashboardPage(ctk.CTkScrollableFrame):
             row=2, column=0, columnspan=4, sticky="w", padx=10, pady=(8, 0))
         go = self.app.show_page
         self.card_orders = CompactStat(self, app.t("dash_today_new"),
-                                       color=config.COLOR_INFO, icon="📦",
+                                       color=config.COLOR_INFO, icon="package",
                                        on_click=lambda: self._goto_orders(""))
         self.card_shipped = CompactStat(self, app.t("dash_today_shipped"),
-                                        color=config.COLOR_INFO, icon="🚚",
+                                        color=config.COLOR_INFO, icon="truck",
                                         on_click=lambda: self._goto_orders("shipped"))
         self.card_delivered = CompactStat(self, app.t("dash_delivered"),
-                                          color=config.COLOR_GREEN, icon="✅",
+                                          color=config.COLOR_GREEN, icon="check",
                                           on_click=lambda: self._goto_orders("delivered"))
         self.card_ghosts = CompactStat(self, app.t("dash_today_ghosts"),
-                                       color=config.COLOR_RED, icon="👻",
+                                       color=config.COLOR_RED, icon="ghost",
                                        on_click=lambda: self._goto_orders("ghosted"))
         for i, card in enumerate([self.card_orders, self.card_shipped,
                                   self.card_delivered, self.card_ghosts]):

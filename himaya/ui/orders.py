@@ -144,10 +144,12 @@ class OrdersPage(ctk.CTkFrame):
             if status_label == (self.app.t("all") if i == 0 else t(f"st_{key}", lang)):
                 status = key
         wilaya = "" if self.f_wilaya.get() == self.app.t("all") else self.f_wilaya.get()
+        # 200 rows cap: ~17 are visible; 500 made every rebuild AND every
+        # page map 2.5x more expensive (part of the v1.7.1 switch-lag fix)
         rows = orders_model.list_orders(
             db, status=status, wilaya=wilaya,
             date_from=self.f_from.get().strip(), date_to=self.f_to.get().strip(),
-            query=self.f_query.get())
+            query=self.f_query.get(), limit=200)
         self.tree.delete(*self.tree.get_children())
         for o in rows:
             self.tree.insert("", "end", iid=str(o["id"]), values=(
