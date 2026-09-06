@@ -407,6 +407,13 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.11: flat template cards; partial scammer index ------------------
+    _tw2 = Path("himaya/ui/time_wasters.py").read_text(encoding="utf-8")
+    assert "foot = ctk.CTkFrame" not in _tw2 and "ctk.CTkButton(foot" not in _tw2, \
+        "template cards must stay flat (4 canvas widgets/card cost 300ms)"
+    assert "copy_tpl(b)" in _tw2, "click-to-copy bound on template cards"
+    print("  ✓ v1.7.11: flat click-to-copy template cards")
+
     # ---- v1.7.10: alerts split into two timed parts; import attributed -------
     _dash2 = Path("himaya/ui/dashboard.py").read_text(encoding="utf-8")
     assert "refresh.dash.lowstock" in _dash2, "low-stock part has its own mark"

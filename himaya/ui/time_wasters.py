@@ -183,25 +183,33 @@ class TimeWastersPage(ctk.CTkFrame):
         tpl_list = (templates_store.by_category(db, cat) if cat
                     else templates_store.all_templates(db))
         for tpl in tpl_list:
-            card = ctk.CTkFrame(self.tpl_frame, fg_color=config.COLOR_BG, corner_radius=10)
-            card.pack(fill="x", pady=4, padx=4)
-            head = ctk.CTkFrame(card, fg_color="transparent")
-            head.pack(fill="x", padx=10, pady=(8, 0))
+            # v1.7.11: FLAT card — 2 plain labels, zero frames/buttons.
+            # The v1.7.9 card still carried 3 CTkFrames + a CTkButton per
+            # template (4 canvas-backed widgets x ~12 templates = the
+            # measured 298ms). Click anywhere on the card to copy.
             cat_name = self.app.t(CATEGORY_KEYS.get(tpl["category"], "tw_cat_general"))
-            ctk.CTkLabel(head, text=f"{tpl['name']}  [{cat_name}]", font=F(12, "bold"),
-                         anchor="w").pack(side="left")
             body = tpl["text_ar"] if lang == "ar" else tpl["text_fr"]
-            # v1.7.9: a wrapped LABEL, not a CTkTextbox — a textbox is the
-            # heaviest CTk widget (~50ms each on weak machines, ~620ms for
-            # the template list). Full text still visible + copyable.
-            txt = ctk.CTkLabel(card, text=body, font=F(11),
-                               text_color=config.COLOR_FG_DIM,
-                               justify="left", anchor="w", wraplength=430)
-            txt.pack(fill="x", padx=10, pady=(2, 4))
-            foot = ctk.CTkFrame(card, fg_color="transparent")
-            foot.pack(fill="x", padx=10, pady=(0, 8))
-            ctk.CTkButton(foot, text=self.app.t("copy"), width=90, height=28,
-                          command=lambda b=body: self.copy_tpl(b)).pack(side="right")
+            head_lbl = ctk.CTkLabel(
+                self.tpl_frame, text=f"▸ {tpl['name']}  [{cat_name}]",
+                font=F(12, "bold"), anchor="w", cursor="hand2")
+            head_lbl.pack(fill="x", pady=(8, 1))
+            body_lbl = ctk.CTkLabel(
+                self.tpl_frame, text=body, font=F(11), cursor="hand2",
+                text_color=config.COLOR_FG_DIM,
+                justify="left", anchor="w", wraplength=430)
+            body_lbl.pack(fill="x", pady=(0, 2))
+            # bind each widget AND its internal children — whichever layer
+            # actually receives the click (CTk internals vary), the copy
+            # fires; one click still triggers exactly one handler.
+            for w in (head_lbl, body_lbl):
+                targets = [w]
+                try:
+                    targets.extend(w.winfo_children())
+                except Exception:
+                    pass
+                for t in targets:
+                    t.bind("<Button-1>",
+                           lambda _e, b=body: self.copy_tpl(b))
 
         _phase("tw.refresh.templates", (_time.perf_counter() - _tt) * 1000)
 

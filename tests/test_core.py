@@ -687,7 +687,15 @@ def test_alert_index_on_existing_db():
     db2 = Database(tmp)
     names = [r[1] for r in db2.conn.execute("PRAGMA index_list('customers')")]
     assert "idx_customers_trust" in names, names
-    print("  ✓ alert index retrofits existing databases")
+    # v1.7.11: the partial scammer index retrofits too, and the planner
+    # must USE it (a leading-wildcard LIKE can never seek a normal index —
+    # only a partial index pre-selects the matching rows).
+    assert "idx_customers_scammer" in names, names
+    q = ("SELECT name FROM customers WHERE (',' || tags || ',') "
+         "LIKE '%,scammer,%' ORDER BY trust_score ASC LIMIT 5")
+    plan = " | ".join(r[3] for r in db2.conn.execute("EXPLAIN QUERY PLAN " + q))
+    assert "USING INDEX idx_customers_scammer" in plan, plan
+    print("  ✓ alert indexes retrofit existing databases (partial idx used)")
 
 
 if __name__ == "__main__":

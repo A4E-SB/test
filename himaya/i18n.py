@@ -191,7 +191,7 @@ _TR = {
     "tw_suggest_deposit": {"fr": "💡 Demandez un acompte à {name} — {n} contacts sans achat.", "en": "💡 Ask {name} for a deposit — {n} contacts without a purchase.", "ar": "💡 اطلب تسبيقا من {name} — {n} تواصل بدون شراء."},
     "tw_no_suggest": {"fr": "Aucune suggestion pour le moment.", "en": "No suggestions for now.", "ar": "لا توجد اقتراحات حاليا."},
     "tw_templates": {"fr": "Réponses intelligentes", "en": "Smart replies", "ar": "الردود الذكية"},
-    "tw_copy_hint": {"fr": "Collez dans Messenger / WhatsApp Web", "en": "Paste into Messenger / WhatsApp Web", "ar": "الصق في ماسنجر / واتساب ويب"},
+    "tw_copy_hint": {"fr": "Cliquez une carte pour copier, puis collez dans Messenger / WhatsApp Web", "en": "Click a card to copy, then paste into Messenger / WhatsApp Web", "ar": "انقر على البطاقة للنسخ ثم الصق في ماسنجر / واتساب ويب"},
     "tw_cat_deposit": {"fr": "Acompte", "en": "Deposit", "ar": "تسبيق"},
     "tw_cat_negotiation": {"fr": "Négociation", "en": "Negotiation", "ar": "تفاوض"},
     "tw_cat_ghost": {"fr": "Fantôme", "en": "Ghost", "ar": "شبح"},
