@@ -16,7 +16,7 @@ import re
 import sqlite3
 import sys
 import tempfile
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 PASS, FAIL = [0], [0]
@@ -228,6 +228,36 @@ def main() -> int:
         check("reminder message renders", len(msg) > 10)
         msg_ar = relance.reminder_message(stuck[0], "ar", db2)
         check("arabic reminder renders", len(msg_ar) > 10)
+    # v1.7.4: the full follow-up journey, end to end
+    rcid = customers.create(db2, "Client Relance", "0771234567")
+    five_days_ago = (date.today() - timedelta(days=5)).isoformat()
+    soid = orders.create(db2, rcid, "Produit dormant", 6500, status="confirmed",
+                         order_date=five_days_ago)
+    stuck5 = relance.stuck_orders(db2, days=3)
+    ids5 = [r["id"] for r in stuck5]
+    check("5-day-old confirmed order is stuck (threshold 3)", soid in ids5)
+    row5 = next(r for r in stuck5 if r["id"] == soid)
+    check("days_waiting >= 5", row5["days_waiting"] >= 5, str(row5["days_waiting"]))
+    check("stuck row carries customer + phone",
+          row5["customer_name"] == "Client Relance" and row5["phone"] == "0771234567")
+    msg = relance.reminder_message(row5, "fr", db2)
+    check("french reminder names the customer, product and wait",
+          "Client" in msg and "Produit dormant" in msg and "5 jour" in msg,
+          msg)
+    msg_ar = relance.reminder_message(row5, "ar", db2)
+    check("arabic reminder renders for the same order", len(msg_ar) > 10)
+    check("threshold 7 excludes the 5-day order",
+          soid not in [r["id"] for r in relance.stuck_orders(db2, days=7)])
+    settings_store.set_setting(db2, "relance_days", "1")
+    check("threshold from settings is honored (1 day catches it)",
+          soid in [r["id"] for r in relance.stuck_orders(db2, days=1)])
+    # a delivered order is never 'stuck'
+    orders.set_status(db2, soid, "delivered")
+    check("delivered order leaves the stuck list",
+          soid not in [r["id"] for r in relance.stuck_orders(db2, days=1)])
+    from himaya.i18n import _TR as _tr
+    check("copy buttons translated (rel_copy_ar/fr)",
+          "rel_copy_ar" in _tr and "rel_copy_fr" in _tr)
 
     # =====================================================================
     print("== 9. i18n audit (all keys x3 languages, all call sites) ==")

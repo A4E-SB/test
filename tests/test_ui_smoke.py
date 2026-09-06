@@ -407,6 +407,58 @@ def main() -> int:
     print("  ✓ OrderDialog")
     dlg2.close()
 
+    # ---- v1.7.4: customer detail fills its panel + updates in place ---------
+    app.show_page("customers")
+    cust_page = app.page
+    name_before = cust_page.det_name
+    tree_before = cust_page.det_tree
+    cust_page.selected_id = None
+    cust_page.render_detail()          # empty state
+    cust_page.render_detail()          # back to content
+    assert cust_page.det_name is name_before, \
+        "detail skeleton must be built ONCE (no per-click rebuild)"
+    assert cust_page.det_tree is tree_before
+    src_c = Path("himaya/ui/customers.py").read_text(encoding="utf-8")
+    assert "self.detail.grid_rowconfigure(2, weight=1)" in src_c, \
+        "history row must expand into the free space"
+    assert "fill_tree_chunked(self.det_tree" in src_c
+    print("  ✓ v1.7.4: detail panel static skeleton + expanding history")
+
+    # ---- v1.7.4: tooltip never churns (cell dedup + reused window) -----------
+    from himaya.ui.widgets import _TreeToolTip as _TT
+    class _Ev:
+        def __init__(self, x, y, xr=10, yr=10):
+            self.x, self.y, self.x_root, self.y_root = x, y, xr, yr
+    class _T:
+        def bind(self, *a, **k):
+            pass
+
+        def __init__(self):
+            self.item_calls = 0
+            self.items = {"r1": ["short", "a very long clipped cell value here"],
+                          "r2": ["x", "another long clipped value"]}
+            self.cols = {"#1": 80, "#2": 40}
+            self.after = lambda ms, fn: ms
+        def identify_row(self, y):
+            return "r1" if y < 20 else "r2"
+        def identify_column(self, x):
+            return "#2"
+        def item(self, row, what=None):      # real call: item(row, "values")
+            self.item_calls += 1
+            return {"values": self.items[row]}
+        def column(self, col):
+            return {"width": self.cols[col]}
+    tt_tree = _T()
+    tip = _TT(tt_tree)
+    ev = _Ev(5, 5)
+    tip._motion(ev); tip._motion(ev); tip._motion(ev)   # same cell over & over
+    assert tt_tree.item_calls == 1, \
+        f"item() must run once per cell (ran {tt_tree.item_calls}x)"
+    tip._motion(_Ev(5, 50))                              # different cell (r2)
+    assert tt_tree.item_calls == 2, tt_tree.item_calls
+    tip._cancel_job()
+    print("  ✓ v1.7.4: tooltip does no heavy work while the cell is unchanged")
+
     # ---- v1.7.2: chunked table fill (no long burst after a switch) -----------
     from himaya.ui.widgets import fill_tree_chunked as _ftc
 

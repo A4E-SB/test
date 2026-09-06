@@ -858,20 +858,66 @@ class EmptyState(ctk.CTkFrame):
 # ---------------------------------------------------------------------------
 
 class _TreeToolTip:
+    """
+    Hover tooltip for clipped tree cells (v1.7.4 efficiency pass).
+
+    The v1.2 version ran identify_row/identify_column/item() on EVERY
+    <Motion> event (dozens per second) and DESTROYED + recreated a
+    CTkToplevel — the single most expensive tk operation — while the
+    cursor moved between cells. That churn was a real source of
+    'laggy / not smooth' over tables. Now:
+      - work happens only when the hovered CELL changes (row+col dedup)
+      - the Toplevel is created lazily ONCE per tooltip instance and
+        reused (withdraw / deiconify + geometry), never churned
+      - the pending show job is cancelled when the cell changes
+    """
+
+    DELAY_MS = 450
+
     def __init__(self, tree):
         self.tree = tree
         self.win = None
         self._job = None
+        self._cell = None            # (row, col) currently hovered
         tree.bind("<Motion>", self._motion, add="+")
         tree.bind("<Leave>", self._hide, add="+")
 
+    # -- window lifecycle -------------------------------------------------
+
+    def _ensure_window(self):
+        if self.win is not None:
+            try:
+                if self.win.winfo_exists():
+                    return self.win
+            except Exception:
+                pass
+        self.win = tw = ctk.CTkToplevel(self.tree)
+        tw.overrideredirect(True)
+        tw.attributes("-topmost", True)
+        self._win_lbl = ctk.CTkLabel(
+            tw, text="", font=F(11), justify="left", wraplength=320,
+            fg_color=config.COLOR_BG_3, corner_radius=6,
+            text_color=config.COLOR_FG, padx=8, pady=4)
+        self._win_lbl.pack()
+        return tw
+
+    # -- events -------------------------------------------------------------
+
     def _motion(self, event) -> None:
-        self._hide()
         try:
             row = self.tree.identify_row(event.y)
             col = self.tree.identify_column(event.x)
-            if not row or not col:
-                return
+        except Exception:
+            return
+        cell = (row, col) if row and col else None
+        if cell == self._cell:
+            return                       # same cell -> zero work (dedup)
+        self._cancel_job()
+        self._cell = cell
+        self._hide()
+        if not cell:
+            return
+        try:
             idx = int(col.replace("#", "")) - 1
             values = self.tree.item(row, "values")
             if idx < 0 or idx >= len(values):
@@ -881,26 +927,36 @@ class _TreeToolTip:
             # ~7 px per char at font 11 — only show when actually clipped
             if len(text) * 7 <= width:
                 return
-            self._job = self.tree.after(450, lambda: self._show(text, event))
+            x, y = event.x_root, event.y_root
+            self._job = self.tree.after(
+                self.DELAY_MS, lambda: self._show(text, x, y))
         except Exception:
             pass
 
-    def _show(self, text, event) -> None:
+    def _show(self, text: str, x: int, y: int) -> None:
         self._job = None
-        if self.win is not None and self.win.winfo_exists():
-            self.win.destroy()
-        self.win = tw = ctk.CTkToplevel(self.tree)
-        tw.overrideredirect(True)
-        tw.attributes("-topmost", True)
-        ctk.CTkLabel(tw, text=text, font=F(11), justify="left", wraplength=320,
-                     fg_color=config.COLOR_BG_3, corner_radius=6,
-                     text_color=config.COLOR_FG, padx=8, pady=4).pack()
-        tw.geometry(f"+{event.x_root + 12}+{event.y_root + 14}")
+        tw = self._ensure_window()       # created once, then reused
+        self._win_lbl.configure(text=text)
+        tw.geometry(f"+{x + 12}+{y + 14}")
+        try:
+            tw.deiconify()
+        except Exception:
+            pass
 
-    def _hide(self, _event=None) -> None:
+    def _cancel_job(self) -> None:
         if self._job is not None:
             try:
                 self.tree.after_cancel(self._job)
+            except Exception:
+                pass
+            self._job = None
+
+    def _hide(self, _event=None) -> None:
+        self._cancel_job()
+        if self.win is not None:
+            try:
+                if self.win.winfo_exists():
+                    self.win.withdraw()
             except Exception:
                 pass
             self._job = None

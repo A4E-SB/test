@@ -19,7 +19,8 @@ from ..models import orders as orders_model
 from ..services import trust
 from ..wilayas import WILAYA_NAMES_FR
 from . import widgets as W
-from .widgets import (F, HimayaDialog, fit_geometry, TrustBadge, EmptyState, make_tree,
+from .widgets import (F, HimayaDialog, fit_geometry, TrustBadge, EmptyState,
+                      make_tree, row_tag,
                       tags_frame, trust_badge_text)
 from .widgets import card as surface
 
@@ -73,12 +74,63 @@ class CustomersPage(ctk.CTkFrame):
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
         self.tree.bind("<Double-1>", lambda e: self.edit_customer())
 
-        # ---- detail ----------------------------------------------------------
+        # ---- detail (v1.7.4: fills the WHOLE panel — identity, stats, and an
+        #      order-history table that expands into the remaining space;
+        #      skeleton built ONCE, only values update per click) -------------
         self.detail = surface(self)
         self.detail.grid(row=1, column=1, sticky="nsew", padx=(4, 8), pady=(4, 8))
         self.detail.grid_columnconfigure(0, weight=1)
-        self.detail_rows = ctk.CTkScrollableFrame(self.detail, fg_color="transparent")
-        self.detail_rows.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        self.detail.grid_rowconfigure(2, weight=1)      # history row grows
+
+        self.det_empty = EmptyState(self.detail, "👤",
+                                    app.t("es_customers"),
+                                    app.t("es_customers_hint"))
+
+        # identity card
+        self.det_head = surface(self.detail)
+        self.det_head.grid(row=0, column=0, sticky="ew")
+        self.det_head.grid_columnconfigure(0, weight=1)
+        self.det_name = ctk.CTkLabel(self.det_head, text="—",
+                                     font=F(20, "semibold"), anchor="w")
+        self.det_name.grid(row=0, column=0, sticky="w", padx=14, pady=(12, 0))
+        ctk.CTkButton(self.det_head, text="✏️ " + app.t("edit"), width=96,
+                      height=28, fg_color=config.COLOR_BG_3,
+                      hover_color=config.COLOR_BG,
+                      command=self.edit_customer).grid(
+                          row=0, column=1, sticky="e", padx=12, pady=(10, 0))
+        self.det_phone = ctk.CTkLabel(self.det_head, text="—", font=F(14),
+                                      text_color=config.COLOR_FG_DIM,
+                                      anchor="w")
+        self.det_phone.grid(row=1, column=0, columnspan=2, sticky="w",
+                            padx=14, pady=(0, 2))
+        self.det_trust_slot = ctk.CTkFrame(self.det_head, fg_color="transparent")
+        self.det_trust_slot.grid(row=2, column=0, sticky="w", padx=14)
+        self.det_tags_slot = ctk.CTkFrame(self.det_head, fg_color="transparent")
+        self.det_tags_slot.grid(row=3, column=0, sticky="w", padx=14,
+                                pady=(0, 10))
+
+        # stats card (small rows, rebuilt per click — cheap)
+        self.det_meta = surface(self.detail)
+        self.det_meta.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        self.det_meta.grid_columnconfigure(0, weight=1)
+
+        # order history — a real table that EXPANDS into the free space
+        # (v1.3-: a short hand-built list left 2/3 of the panel empty and
+        # cost 3 widgets per order; the tree fills the panel and handles
+        # any history size)
+        self.det_hist = surface(self.detail)
+        self.det_hist.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        self.det_hist.grid_columnconfigure(0, weight=1)
+        self.det_hist.grid_rowconfigure(1, weight=1)
+        self.det_hist_lbl = ctk.CTkLabel(self.det_hist, text=app.t("cust_order_history"),
+                                         font=F(12, "semibold"), anchor="w")
+        self.det_hist_lbl.grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 2))
+        hcols = [("id", "#", 44), ("date", app.t("date"), 88),
+                 ("product", app.t("product"), 150), ("price", app.t("price"), 92),
+                 ("status", app.t("status"), 132)]
+        self.det_tree = make_tree(self.det_hist, hcols, height=6)
+        self.det_tree.grid(row=1, column=0, sticky="nsew", padx=8, pady=(2, 10))
+        W.bind_tree_tooltips(self.det_tree)
 
         self.refresh()
 
@@ -118,32 +170,36 @@ class CustomersPage(ctk.CTkFrame):
         self.render_detail()
 
     def render_detail(self) -> None:
-        for w in self.detail_rows.winfo_children():
-            w.destroy()
+        """Update the static detail skeleton in place (v1.7.4: no full
+        rebuild per click — the old one destroyed ~20 widgets + 3 per
+        history order on every selection)."""
         db, lang = self.app.db, self.app.lang
-        if not self.selected_id:
-            EmptyState(self.detail_rows, "👤",
-                       self.app.t("es_customers"),
-                       self.app.t("es_customers_hint")).pack(expand=True, pady=30)
-            return
-        cust = customers_model.get(db, self.selected_id)
+        cust = (customers_model.get(db, self.selected_id)
+                if self.selected_id else None)
         if not cust:
+            self.det_empty.grid(row=0, column=0, rowspan=3, sticky="nsew")
+            for card in (self.det_head, self.det_meta, self.det_hist):
+                card.grid_remove()
             return
+        self.det_empty.grid_remove()
+        for card in (self.det_head, self.det_meta, self.det_hist):
+            card.grid()
 
-        ctk.CTkLabel(self.detail_rows, text=cust["name"], font=F(20, "bold"),
-                     anchor="e" if lang == "ar" else "w").pack(anchor="w", pady=(0, 0))
-        ctk.CTkLabel(self.detail_rows, text=cust["phone"], font=F(15),
-                     text_color=config.COLOR_FG_DIM,
-                     anchor="e" if lang == "ar" else "w").pack(anchor="w")
-
-        # trust badge — the same icon set used in Labels/tables everywhere
-        tb = TrustBadge(self.detail_rows, cust["trust_score"], lang)
-        tb.pack(anchor="w", pady=(8, 2))
+        self.det_name.configure(text=cust["name"])
+        self.det_phone.configure(text=cust["phone"])
+        for w in self.det_trust_slot.winfo_children():
+            w.destroy()
+        TrustBadge(self.det_trust_slot, cust["trust_score"], lang).pack(anchor="w")
+        for w in self.det_tags_slot.winfo_children():
+            w.destroy()
         if cust["tags"]:
-            tags_frame(self.detail_rows, [x for x in cust["tags"].split(",") if x],
-                       lang).pack(anchor="w", pady=4)
+            tags_frame(self.det_tags_slot,
+                       [x for x in cust["tags"].split(",") if x], lang).pack(
+                           anchor="w", pady=(2, 0))
 
-        # meta
+        # stats rows (small, rebuilt)
+        for w in self.det_meta.winfo_children():
+            w.destroy()
         meta = [(self.app.t("wilaya"), cust["wilaya"]),
                 (self.app.t("address"), cust["address"]),
                 (self.app.t("date"), cust["created_at"][:10])]
@@ -160,41 +216,28 @@ class CustomersPage(ctk.CTkFrame):
         if cust["notes"]:
             meta.append((self.app.t("notes"), cust["notes"]))
         for label, value in meta:
-            row = ctk.CTkFrame(self.detail_rows, fg_color="transparent")
+            row = ctk.CTkFrame(self.det_meta, fg_color="transparent")
             row.pack(fill="x", pady=1)
-            ctk.CTkLabel(row, text=label, text_color=config.COLOR_FG_DIM, font=F(11),
-                         anchor="w").pack(side="left")
+            row.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(row, text=label, text_color=config.COLOR_FG_DIM,
+                         font=F(11), anchor="w").grid(row=0, column=0,
+                                                      sticky="w", padx=(14, 8))
             ctk.CTkLabel(row, text=str(value), font=F(12),
-                         anchor="e" if lang == "ar" else "w").pack(side="right")
+                         anchor="e" if lang == "ar" else "w").grid(
+                             row=0, column=1, sticky="e", padx=(8, 14))
 
-        # order history
-        ctk.CTkLabel(self.detail_rows, text=self.app.t("cust_order_history"),
-                     font=F(13, "bold")).pack(anchor="w", pady=(12, 4))
-        for o in orders_model.list_for_customer(db, cust["id"]):
-            row = ctk.CTkFrame(self.detail_rows, fg_color=config.COLOR_BG, corner_radius=8)
-            row.pack(fill="x", pady=2)
-            color = config.STATUS_COLORS.get(o["status"], config.COLOR_FG_DIM)
-            ctk.CTkLabel(row, text=f"#{o['id']:04d} • {o['date']}", font=F(11),
-                         text_color=config.COLOR_FG_DIM).pack(side="left", padx=8)
-            ctk.CTkLabel(row, text=o["product"][:24], font=F(11)).pack(side="left")
-            ctk.CTkLabel(row, text=t(f"st_{o['status']}", lang), font=F(11, "bold"),
-                         text_color=color).pack(side="right", padx=8)
-            ctk.CTkLabel(row, text=config.fmt_money(o["price"], lang), font=F(11)
-                         ).pack(side="right", padx=4)
+        # order history: chunked fill (any size, status-colored rows)
+        hist = orders_model.list_for_customer(db, cust["id"])
+        self.det_hist_lbl.configure(
+            text=f"{self.app.t('cust_order_history')}  ({len(hist)})")
+        W.fill_tree_chunked(self.det_tree, [{
+            "iid": str(o["id"]),
+            "values": (o["id"], o["date"], o["product"],
+                       config.fmt_money(o["price"], lang),
+                       W.status_badge_text(o["status"], lang)),
+            "tags": (row_tag(o["status"]),),
+        } for o in hist])
 
-        # actions
-        acts = ctk.CTkFrame(self.detail_rows, fg_color="transparent")
-        acts.pack(fill="x", pady=(12, 4))
-        ctk.CTkButton(acts, text=self.app.t("edit"), width=90,
-                      command=self.edit_customer).pack(side="left", padx=(0, 6))
-        ctk.CTkButton(acts, text=self.app.t("delete"), width=90, fg_color=config.COLOR_RED,
-                      hover_color="#c0392b", command=self.delete_customer
-                      ).pack(side="left", padx=(0, 6))
-        ctk.CTkButton(acts, text=self.app.t("cust_blacklist_btn"), fg_color=config.COLOR_RED,
-                      hover_color="#c0392b", command=self.blacklist_customer
-                      ).pack(side="left")
-
-    # ------------------------------------------------------------------ dialogs
 
     def quick_add(self) -> None:
         """Paste a line -> parsed fields -> create the customer."""
