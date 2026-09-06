@@ -20,6 +20,7 @@ from .widgets import card as surface
 
 class DashboardPage(ctk.CTkScrollableFrame):
     def __init__(self, master, app):
+        _sf0 = _time.perf_counter()     # whole-constructor total (v1.7.9)
         _sf = _time.perf_counter()      # base construction cost (canvas +
         super().__init__(master, fg_color=config.COLOR_BG)  # scrollbars)
         self.app = app
@@ -145,6 +146,10 @@ class DashboardPage(ctk.CTkScrollableFrame):
         self.grid_rowconfigure(7, weight=1)
         _phase("dash.widgets.recent", (_time.perf_counter() - _t0) * 1000)
         self.refresh()
+        # v1.7.9: whole-constructor total — the gap between this and the sum
+        # of the phase marks is the NEXT optimization target (currently
+        # ~556ms unaccounted: page-module import? grid realization?).
+        _phase("dash.init.total", (_time.perf_counter() - _sf0) * 1000)
 
     # ------------------------------------------------------------------
 
@@ -225,19 +230,15 @@ class DashboardPage(ctk.CTkScrollableFrame):
                          text_color=config.COLOR_GREEN, font=F(12),
                          anchor="w", justify="left").pack(anchor="w", pady=2)
         for r in rows:
-            # v1.7.8: plain colored labels (the v1.7.4 tinted row + pill each
-            # carried a full draw-canvas — ~1150 ms of the dashboard build
-            # on the reported weak machine). Same info, zero canvases.
-            row_f = ctk.CTkFrame(self.alerts_box, fg_color="transparent")
-            row_f.pack(fill="x", pady=1)
-            row_f.grid_columnconfigure(0, weight=1)
-            ctk.CTkLabel(row_f, text=f"🚨 {r['name']} — {r['phone']}",
-                         text_color=config.COLOR_RED, font=F(12),
-                         anchor="w", justify="left").grid(
-                             row=0, column=0, sticky="w")
-            ctk.CTkLabel(row_f, text=trust_badge_text(r["trust_score"]),
-                         text_color=config.COLOR_RED, font=F(11, "semibold")
-                         ).grid(row=0, column=1, sticky="e", padx=(4, 6))
+            # v1.7.9: ONE label per row. Even a "transparent" CTkFrame is
+            # canvas-backed (~80ms each on the reported machine) — the
+            # v1.7.8 rows still cost 452ms. Zero frames now.
+            ctk.CTkLabel(
+                self.alerts_box,
+                text=f"🚨 {r['name']} — {r['phone']}  •  "
+                     f"{trust_badge_text(r['trust_score'])}",
+                text_color=config.COLOR_RED, font=F(12),
+                anchor="w", justify="left").pack(anchor="w", pady=1)
         # low-stock products (v1.1.0 catalog)
         from ..models import products as products_model
         low = products_model.low_stock_products(db)

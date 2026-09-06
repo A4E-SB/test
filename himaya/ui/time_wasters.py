@@ -191,11 +191,13 @@ class TimeWastersPage(ctk.CTkFrame):
             ctk.CTkLabel(head, text=f"{tpl['name']}  [{cat_name}]", font=F(12, "bold"),
                          anchor="w").pack(side="left")
             body = tpl["text_ar"] if lang == "ar" else tpl["text_fr"]
-            txt = ctk.CTkTextbox(card, height=76, fg_color="transparent",
-                                 font=F(12), wrap="word")
-            txt.insert("1.0", body)
-            txt.configure(state="disabled")
-            txt.pack(fill="x", padx=10, pady=4)
+            # v1.7.9: a wrapped LABEL, not a CTkTextbox — a textbox is the
+            # heaviest CTk widget (~50ms each on weak machines, ~620ms for
+            # the template list). Full text still visible + copyable.
+            txt = ctk.CTkLabel(card, text=body, font=F(11),
+                               text_color=config.COLOR_FG_DIM,
+                               justify="left", anchor="w", wraplength=430)
+            txt.pack(fill="x", padx=10, pady=(2, 4))
             foot = ctk.CTkFrame(card, fg_color="transparent")
             foot.pack(fill="x", padx=10, pady=(0, 8))
             ctk.CTkButton(foot, text=self.app.t("copy"), width=90, height=28,
